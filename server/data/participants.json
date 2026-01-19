@@ -1,0 +1,79 @@
+[
+  {
+    "participant_id": "part_001",
+    "tournament_id": "tourn_beta",
+    "type": "team",
+    "linked_player_id": null,
+    "linked_team_id": "TE001",
+    "status": "confirmed",
+    "payment_status": "paid",
+    "slot_number": 3,
+    "notes": ""
+  },
+  {
+    "participant_id": "part_002",
+    "tournament_id": "tourn_beta",
+    "type": "team",
+    "linked_player_id": null,
+    "linked_team_id": "TE002",
+    "status": "pending",
+    "payment_status": "unpaid",
+    "slot_number": 7,
+    "notes": "Awaiting payment."
+  },
+  {
+    "participant_id": "XWyQ8ue-kV",
+    "tournament_id": "TE38127",
+    "type": "player",
+    "linked_player_id": "PE88218",
+    "linked_team_id": null,
+    "status": "confirmed",
+    "payment_status": "paid",
+    "slot_number": 1,
+    "notes": ""
+  },
+  {
+    "participant_id": "kMc3_2L3LR",
+    "tournament_id": "TE38127",
+    "type": "player",
+    "linked_player_id": "PE002",
+    "linked_team_id": null,
+    "status": "pending",
+    "payment_status": "paid",
+    "slot_number": null,
+    "notes": ""
+  },
+  {
+    "participant_id": "ZdDvgSfVCb",
+    "tournament_id": "tourn_alpha",
+    "type": "team",
+    "linked_player_id": null,
+    "linked_team_id": "PE22222",
+    "status": "confirmed",
+    "payment_status": "paid",
+    "slot_number": 1,
+    "notes": ""
+  },
+  {
+    "participant_id": "UR4FVLN9GQ",
+    "tournament_id": "TE38127",
+    "type": "team",
+    "linked_player_id": null,
+    "linked_team_id": "TE002",
+    "status": "confirmed",
+    "payment_status": "paid",
+    "slot_number": 2,
+    "notes": ""
+  },
+  {
+    "participant_id": "rZWK84gM6N",
+    "tournament_id": "TE38127",
+    "type": "player",
+    "linked_player_id": "PE003",
+    "linked_team_id": null,
+    "status": "confirmed",
+    "payment_status": "paid",
+    "slot_number": null,
+    "notes": "team:TE002"
+  }
+]

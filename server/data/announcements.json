@@ -1,0 +1,18 @@
+[
+  {
+    "announcement_id": "note_001",
+    "title": "Registration Open: Crimson Circuit",
+    "body": "Duo registrations are now open. Submit your roster by Jan 10.",
+    "type": "notice",
+    "created_at": "2024-12-20T10:00:00Z",
+    "importance": "high"
+  },
+  {
+    "announcement_id": "note_002",
+    "title": "Rules Update",
+    "body": "Updated loot rules for Iron Sky Invitational finals now posted.",
+    "type": "update",
+    "created_at": "2024-12-01T12:00:00Z",
+    "importance": "medium"
+  }
+]

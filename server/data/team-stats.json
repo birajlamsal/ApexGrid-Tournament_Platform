@@ -1,0 +1,35 @@
+[
+  {
+    "team_id": "TE001",
+    "tournament_id": "tourn_alpha",
+    "team_name": "Aurora Legion",
+    "matches_played": 18,
+    "wins": 6,
+    "total_points": 286,
+    "total_kills": 102,
+    "avg_placement": 4.2,
+    "win_rate": 33.3
+  },
+  {
+    "team_id": "TE002",
+    "tournament_id": "tourn_alpha",
+    "team_name": "Vortex Prime",
+    "matches_played": 16,
+    "wins": 4,
+    "total_points": 240,
+    "total_kills": 89,
+    "avg_placement": 5.1,
+    "win_rate": 25
+  },
+  {
+    "team_id": "TE003",
+    "tournament_id": "tourn_alpha",
+    "team_name": "Night Howl",
+    "matches_played": 14,
+    "wins": 5,
+    "total_points": 250,
+    "total_kills": 95,
+    "avg_placement": 3.9,
+    "win_rate": 35.7
+  }
+]

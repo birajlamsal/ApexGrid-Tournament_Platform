@@ -1,0 +1,26 @@
+[
+  {
+    "match_id": "match_001",
+    "tournament_id": "tourn_alpha",
+    "match_name": "Iron Sky Finals - Match 6",
+    "match_time": "2024-12-08T19:30:00Z",
+    "teams": ["Aurora Legion", "Vortex Prime", "Crimson Nova"],
+    "result_summary": "Aurora Legion secured victory with 16 kills.",
+    "winner": "Aurora Legion",
+    "placement": [
+      { "team": "Aurora Legion", "place": 1, "kills": 16 },
+      { "team": "Crimson Nova", "place": 2, "kills": 12 },
+      { "team": "Vortex Prime", "place": 3, "kills": 9 }
+    ]
+  },
+  {
+    "match_id": "match_002",
+    "tournament_id": "tourn_beta",
+    "match_name": "Crimson Circuit Qualifier - Match 2",
+    "match_time": "2025-01-18T17:00:00Z",
+    "teams": ["Aurora Legion", "Night Howl"],
+    "result_summary": "Match scheduled.",
+    "winner": "",
+    "placement": []
+  }
+]

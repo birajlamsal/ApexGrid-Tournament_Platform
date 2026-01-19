@@ -1,0 +1,16 @@
+[
+  {
+    "match_id": "up_001",
+    "match_name": "Crimson Circuit Open - Match 1",
+    "tournament_name": "Crimson Circuit Open",
+    "match_time": "2025-01-18T15:00:00Z",
+    "lobby": "Erangel"
+  },
+  {
+    "match_id": "up_002",
+    "match_name": "Crimson Circuit Open - Match 2",
+    "tournament_name": "Crimson Circuit Open",
+    "match_time": "2025-01-18T17:00:00Z",
+    "lobby": "Miramar"
+  }
+]

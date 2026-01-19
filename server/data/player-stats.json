@@ -1,0 +1,35 @@
+[
+  {
+    "player_id": "PE001",
+    "tournament_id": "tourn_alpha",
+    "player_name": "RavenFlux",
+    "matches_played": 20,
+    "total_kills": 58,
+    "kd_ratio": 2.4,
+    "total_points": 190,
+    "avg_placement": 4.1,
+    "damage": 8200
+  },
+  {
+    "player_id": "PE002",
+    "tournament_id": "tourn_alpha",
+    "player_name": "NovaByte",
+    "matches_played": 18,
+    "total_kills": 46,
+    "kd_ratio": 2.1,
+    "total_points": 170,
+    "avg_placement": 4.7,
+    "damage": 7400
+  },
+  {
+    "player_id": "PE003",
+    "tournament_id": "tourn_alpha",
+    "player_name": "EmberShot",
+    "matches_played": 16,
+    "total_kills": 49,
+    "kd_ratio": 2.5,
+    "total_points": 176,
+    "avg_placement": 3.8,
+    "damage": 7900
+  }
+]

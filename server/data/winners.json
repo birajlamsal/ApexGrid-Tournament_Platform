@@ -1,0 +1,38 @@
+[
+  {
+    "winner_id": "win_001",
+    "tournament_id": "tourn_alpha",
+    "tournament_name": "Iron Sky Invitational",
+    "by_points": {
+      "first": "Aurora Legion",
+      "second": "Crimson Nova",
+      "third": "Vortex Prime",
+      "points": [108, 97, 89],
+      "prize": [1200, 800, 500]
+    },
+    "most_kills": {
+      "winner": "Aurora Legion",
+      "kills": 46,
+      "matches_played": 6,
+      "highlight": true
+    }
+  },
+  {
+    "winner_id": "win_002",
+    "tournament_id": "tourn_gamma",
+    "tournament_name": "Nightfall Masters",
+    "by_points": {
+      "first": "Night Howl",
+      "second": "Aurora Legion",
+      "third": "Vortex Prime",
+      "points": [102, 95, 88],
+      "prize": [1500, 900, 500]
+    },
+    "most_kills": {
+      "winner": "Night Howl",
+      "kills": 41,
+      "matches_played": 5,
+      "highlight": true
+    }
+  }
+]

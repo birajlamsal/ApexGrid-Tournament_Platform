@@ -1,0 +1,24 @@
+[
+  {
+    "team_id": "TE001",
+    "team_key": "AUR-2024",
+    "team_name": "Aurora Legion",
+    "team_logo_url": "https://images.unsplash.com/photo-1545239351-1141bd82e8a6?q=80&w=600&auto=format&fit=crop",
+    "captain_player_id": "PE001",
+    "player_ids": ["PE001", "PE002"],
+    "discord_contact": "aurora#2233",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE002",
+    "team_key": "VTX-987",
+    "team_name": "Vortex Prime",
+    "team_logo_url": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=600&auto=format&fit=crop",
+    "captain_player_id": "PE003",
+    "player_ids": ["PE003"],
+    "discord_contact": "vortex#8899",
+    "region": "EU",
+    "notes": ""
+  }
+]
