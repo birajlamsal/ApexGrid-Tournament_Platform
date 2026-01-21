@@ -44,8 +44,7 @@ const emptyTournament = {
   api_key_required: false,
   custom_match_mode: false,
   allow_non_custom: false,
-  custom_player_names: "",
-  custom_match_ids: ""
+  custom_match_ids: []
 };
 
 const emptyPlayer = {
@@ -95,24 +94,17 @@ const regions = Array.from(
   new Set(["SEA", "EU", "NA", "SA", "OCE", "MEA", "ASIA", "KRJP", "CN", "Other"])
 );
 
-const formatPlayerNames = (value) => {
-  if (!value) {
-    return "";
-  }
-  if (Array.isArray(value)) {
-    return value.join(", ");
-  }
-  return String(value);
-};
-
 const formatMatchIds = (value) => {
   if (!value) {
-    return "";
+    return [];
   }
   if (Array.isArray(value)) {
-    return value.join(", ");
+    return value.map((id) => String(id).trim()).filter(Boolean);
   }
-  return String(value);
+  return String(value)
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
 };
 
 const AdminPage = () => {
@@ -150,6 +142,7 @@ const AdminPage = () => {
     status: "confirmed",
     payment_status: "paid"
   });
+  const [matchIdInput, setMatchIdInput] = useState("");
 
   const isEditingTournament = Boolean(tournamentForm.tournament_id && tournaments.length);
   const isEditingPlayer = Boolean(playerForm.player_id && players.length);
@@ -224,21 +217,19 @@ const AdminPage = () => {
       }
     }
     try {
-      const { tournament_id, contact_discord, pubg_tournament_id, ...rest } =
-        tournamentForm;
+      const {
+        tournament_id,
+        contact_discord,
+        pubg_tournament_id,
+        custom_player_names: _custom_player_names,
+        ...rest
+      } = tournamentForm;
       const payload = {
         ...rest,
         prize_pool: Number(tournamentForm.prize_pool || 0),
         registration_charge: Number(tournamentForm.registration_charge || 0),
         max_slots: tournamentForm.max_slots ? Number(tournamentForm.max_slots) : null,
-        custom_player_names: tournamentForm.custom_player_names
-          .split(",")
-          .map((name) => name.trim())
-          .filter(Boolean),
-        custom_match_ids: tournamentForm.custom_match_ids
-          .split(",")
-          .map((id) => id.trim())
-          .filter(Boolean)
+        custom_match_ids: formatMatchIds(tournamentForm.custom_match_ids)
       };
       if (isEditingTournament) {
         await adminUpdateTournament(token, tournamentForm.tournament_id, payload);
@@ -617,12 +608,10 @@ const AdminPage = () => {
                                 setTournamentForm({
                                   ...emptyTournament,
                                   ...tournament,
-                                  custom_player_names: formatPlayerNames(
-                                    tournament.custom_player_names
-                                  ),
                                   custom_match_ids: formatMatchIds(tournament.custom_match_ids)
                                 });
                                 setShowTournamentForm(true);
+                                setMatchIdInput("");
                               }}
                             >
                               Edit
@@ -886,30 +875,58 @@ const AdminPage = () => {
                     </select>
                   </label>
                   <label>
-                    Custom Match Player Names
-                    <input
-                      value={tournamentForm.custom_player_names}
-                      onChange={(event) =>
-                        setTournamentForm((prev) => ({
-                          ...prev,
-                          custom_player_names: event.target.value
-                        }))
-                      }
-                      placeholder="player1, player2, player3"
-                    />
-                  </label>
-                  <label>
                     Custom Match IDs
-                    <input
-                      value={tournamentForm.custom_match_ids}
-                      onChange={(event) =>
-                        setTournamentForm((prev) => ({
-                          ...prev,
-                          custom_match_ids: event.target.value
-                        }))
-                      }
-                      placeholder="match-uuid-1, match-uuid-2"
-                    />
+                    <div className="matchid-inline">
+                      <input
+                        value={matchIdInput}
+                        onChange={(event) => setMatchIdInput(event.target.value)}
+                        placeholder="match-uuid"
+                      />
+                      <button
+                        type="button"
+                        className="ghost-button"
+                        onClick={() => {
+                          const trimmed = matchIdInput.trim();
+                          if (!trimmed) {
+                            return;
+                          }
+                          setTournamentForm((prev) => ({
+                            ...prev,
+                            custom_match_ids: Array.from(
+                              new Set([...(prev.custom_match_ids || []), trimmed])
+                            )
+                          }));
+                          setMatchIdInput("");
+                        }}
+                      >
+                        + Add
+                      </button>
+                    </div>
+                    <div className="matchid-active">
+                      {(tournamentForm.custom_match_ids || []).length === 0 ? (
+                        <span className="muted">No match IDs added yet.</span>
+                      ) : (
+                        (tournamentForm.custom_match_ids || []).map((id) => (
+                          <div key={id} className="matchid-chip">
+                            <span>{id}</span>
+                            <button
+                              type="button"
+                              className="text-button danger"
+                              onClick={() =>
+                                setTournamentForm((prev) => ({
+                                  ...prev,
+                                  custom_match_ids: (prev.custom_match_ids || []).filter(
+                                    (item) => item !== id
+                                  )
+                                }))
+                              }
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </label>
                 </div>
                 <label>
@@ -1052,12 +1069,10 @@ const AdminPage = () => {
                 )}
                 {selectedTournament.api_key_required &&
                   selectedTournament.custom_match_mode &&
-                  (!selectedTournament.custom_player_names ||
-                    selectedTournament.custom_player_names.length === 0) &&
                   (!selectedTournament.custom_match_ids ||
                     selectedTournament.custom_match_ids.length === 0) && (
                     <div className="alert">
-                      Custom match mode needs match IDs or tracked player names.
+                      Custom match mode needs match IDs.
                     </div>
                   )}
               </div>
@@ -1532,7 +1547,6 @@ const AdminPage = () => {
                       onChange={(event) =>
                         setPlayerForm((prev) => ({ ...prev, discord_id: event.target.value }))
                       }
-                      required
                     />
                   </label>
                   <label>

@@ -11,6 +11,15 @@ const Header = () => {
         <NavLink to="/">Home</NavLink>
         <NavLink to="/tournaments">Tournaments</NavLink>
         <NavLink to="/announcements">Announcements</NavLink>
+        <div className="nav-dropdown">
+          <button type="button" className="dropdown-toggle">
+            Extras
+          </button>
+          <div className="dropdown-menu">
+            <NavLink to="/matchidextract">Match ID Extractor</NavLink>
+            <NavLink to="/matchdetails">Match Details Downloader</NavLink>
+          </div>
+        </div>
         <NavLink to="/contact">Contact</NavLink>
       </nav>
       <a

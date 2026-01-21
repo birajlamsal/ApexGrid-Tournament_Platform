@@ -1,24 +1,213 @@
 [
   {
-    "team_id": "TE001",
-    "team_key": "AUR-2024",
-    "team_name": "Aurora Legion",
-    "team_logo_url": "https://images.unsplash.com/photo-1545239351-1141bd82e8a6?q=80&w=600&auto=format&fit=crop",
-    "captain_player_id": "PE001",
-    "player_ids": ["PE001", "PE002"],
-    "discord_contact": "aurora#2233",
+    "team_id": "TE0001",
+    "team_key": "MujiVerse",
+    "team_name": "MujiVerse",
+    "team_logo_url": "",
+    "captain_player_id": "PE0001",
+    "player_ids": [
+      "PE0001",
+      "PE0002",
+      "PE0003",
+      "PE0004",
+      "PE0005"
+    ],
+    "discord_contact": "",
     "region": "SEA",
     "notes": ""
   },
   {
-    "team_id": "TE002",
-    "team_key": "VTX-987",
-    "team_name": "Vortex Prime",
-    "team_logo_url": "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=600&auto=format&fit=crop",
-    "captain_player_id": "PE003",
-    "player_ids": ["PE003"],
-    "discord_contact": "vortex#8899",
-    "region": "EU",
+    "team_id": "TE0002",
+    "team_key": "M8",
+    "team_name": "M8",
+    "team_logo_url": "",
+    "captain_player_id": "PE0006",
+    "player_ids": [
+      "PE0006",
+      "PE0007",
+      "PE0008",
+      "PE0009",
+      "PE0010"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0003",
+    "team_key": "Team Dhurand",
+    "team_name": "Team Dhurandhar",
+    "team_logo_url": "",
+    "captain_player_id": "PE0011",
+    "player_ids": [
+      "PE0011",
+      "PE0012",
+      "PE0013",
+      "PE0014",
+      "PE0015"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0004",
+    "team_key": "BD71",
+    "team_name": "BD71",
+    "team_logo_url": "",
+    "captain_player_id": "PE0016",
+    "player_ids": [
+      "PE0016",
+      "PE0017",
+      "PE0018",
+      "PE0019",
+      "PE0020"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0005",
+    "team_key": "FEARLESS NEW",
+    "team_name": "FEARLESS NEWBIES",
+    "team_logo_url": "",
+    "captain_player_id": "PE0021",
+    "player_ids": [
+      "PE0021",
+      "PE0022",
+      "PE0023",
+      "PE0024"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0006",
+    "team_key": "NPL",
+    "team_name": "NPL",
+    "team_logo_url": "",
+    "captain_player_id": "PE0025",
+    "player_ids": [
+      "PE0025",
+      "PE0026",
+      "PE0027",
+      "PE0028"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0007",
+    "team_key": "HAKU ESP",
+    "team_name": "HAKU ESP",
+    "team_logo_url": "",
+    "captain_player_id": "PE0029",
+    "player_ids": [
+      "PE0029",
+      "PE0030",
+      "PE0031",
+      "PE0032"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0008",
+    "team_key": "ZEUSABERZ ES",
+    "team_name": "ZEUSABERZ ESPORTS",
+    "team_logo_url": "",
+    "captain_player_id": "PE0033",
+    "player_ids": [
+      "PE0033",
+      "PE0034",
+      "PE0035",
+      "PE0036"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0009",
+    "team_key": "Z Force",
+    "team_name": "Z Force",
+    "team_logo_url": "",
+    "captain_player_id": "PE0037",
+    "player_ids": [
+      "PE0037",
+      "PE0038",
+      "PE0039",
+      "PE0040"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0010",
+    "team_key": "BLitZ Esport",
+    "team_name": "BLitZ Esports",
+    "team_logo_url": "",
+    "captain_player_id": "PE0041",
+    "player_ids": [
+      "PE0041",
+      "PE0042",
+      "PE0043"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0011",
+    "team_key": "josh esports",
+    "team_name": "josh esports",
+    "team_logo_url": "",
+    "captain_player_id": "PE0044",
+    "player_ids": [
+      "PE0044",
+      "PE0045",
+      "PE0046",
+      "PE0047"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0012",
+    "team_key": "SILENT WARRI",
+    "team_name": "SILENT WARRIOR",
+    "team_logo_url": "",
+    "captain_player_id": "PE0048",
+    "player_ids": [
+      "PE0048",
+      "PE0049",
+      "PE0050",
+      "PE0051"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
+    "notes": ""
+  },
+  {
+    "team_id": "TE0013",
+    "team_key": "Omega Tactix",
+    "team_name": "Omega Tactix",
+    "team_logo_url": "",
+    "captain_player_id": "PE0052",
+    "player_ids": [
+      "PE0052",
+      "PE0053",
+      "PE0054",
+      "PE0055"
+    ],
+    "discord_contact": "",
+    "region": "SEA",
     "notes": ""
   }
 ]

@@ -43,9 +43,9 @@ const placementPoints = (rank) => {
   return Math.max(0, 17 - rank);
 };
 
-const aggregateMatches = async ({
-  apiKey,
-  matchIds,
+const aggregateMatchPayloads = ({
+  matchPayloads,
+  matchCount,
   cacheId,
   limit = 12,
   fresh = false,
@@ -60,13 +60,17 @@ const aggregateMatches = async ({
     }
   }
 
-  const limitedIds = matchIds.slice(0, limit);
   const matches = [];
   const players = new Map();
   const teams = new Map();
 
-  for (const matchId of limitedIds) {
-    const match = await request(apiKey, `/matches/${matchId}`);
+  const safePayloads = Array.isArray(matchPayloads) ? matchPayloads : [];
+  const limitedPayloads = safePayloads.slice(0, limit);
+
+  for (const match of limitedPayloads) {
+    if (!match || !match.data) {
+      continue;
+    }
     const attributes = match.data.attributes || {};
     if (onlyCustom && attributes.isCustomMatch !== true) {
       continue;
@@ -195,7 +199,7 @@ const aggregateMatches = async ({
   const data = {
     tournament: {
       id: tournamentId || cacheId,
-      match_count: matchIds.length
+      match_count: matchCount ?? safePayloads.length
     },
     matches,
     teams: teamStats,
@@ -208,17 +212,58 @@ const aggregateMatches = async ({
   return data;
 };
 
-const aggregateTournament = async ({ apiKey, tournamentId, limit = 12, fresh = false }) => {
+const fetchMatchPayloads = async ({ apiKey, matchIds }) => {
+  const cleanedIds = Array.from(
+    new Set((matchIds || []).map((id) => String(id).trim()).filter(Boolean))
+  );
+  const payloads = [];
+  for (const matchId of cleanedIds) {
+    payloads.push(await request(apiKey, `/matches/${matchId}`));
+  }
+  return payloads;
+};
+
+const fetchTournamentMatchIds = async ({ apiKey, tournamentId }) => {
   const tournament = await request(apiKey, `/tournaments/${tournamentId}`);
-  const matchIds = tournament.data.relationships.matches.data.map((match) => match.id);
-  return aggregateMatches({
-    apiKey,
-    matchIds,
+  const matchRefs = tournament.data?.relationships?.matches?.data || [];
+  const ids = matchRefs.map((match) => match.id).filter(Boolean);
+  return Array.from(new Set(ids));
+};
+
+const aggregateMatches = async ({
+  apiKey,
+  matchIds,
+  cacheId,
+  limit = 12,
+  fresh = false,
+  onlyCustom = false,
+  tournamentId = null
+}) => {
+  const limitedIds = matchIds.slice(0, limit);
+  const matchPayloads = await fetchMatchPayloads({ apiKey, matchIds: limitedIds });
+  return aggregateMatchPayloads({
+    matchPayloads,
+    matchCount: matchIds.length,
+    cacheId,
+    limit,
+    fresh,
+    onlyCustom,
+    tournamentId
+  });
+};
+
+const aggregateTournament = async ({ apiKey, tournamentId, limit = 12, fresh = false }) => {
+  const matchIds = await fetchTournamentMatchIds({ apiKey, tournamentId });
+  const limitedIds = matchIds.slice(0, limit);
+  const matchPayloads = await fetchMatchPayloads({ apiKey, matchIds: limitedIds });
+  return aggregateMatchPayloads({
+    matchPayloads,
+    matchCount: matchIds.length,
     cacheId: tournamentId,
     limit,
     fresh,
     onlyCustom: false,
-    tournamentId: tournament.data.id
+    tournamentId
   });
 };
 
@@ -277,9 +322,11 @@ const aggregateMatchIds = async ({
   if (!cleanedIds.length) {
     throw new Error("No match IDs provided");
   }
-  return aggregateMatches({
-    apiKey,
-    matchIds: cleanedIds,
+  const limitedIds = cleanedIds.slice(0, limit);
+  const matchPayloads = await fetchMatchPayloads({ apiKey, matchIds: limitedIds });
+  return aggregateMatchPayloads({
+    matchPayloads,
+    matchCount: cleanedIds.length,
     cacheId: `matchids:${cleanedIds.join(",")}`,
     limit,
     fresh,
@@ -320,6 +367,9 @@ module.exports = {
   aggregateTournament,
   aggregateCustomMatches,
   aggregateMatchIds,
+  aggregateMatchPayloads,
+  fetchMatchPayloads,
+  fetchTournamentMatchIds,
   fetchPlayerMatches,
   fetchMatchSummaries
 };

@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    allowedHosts: ["semioval-rocco-abstinently.ngrok-free.dev"],
     proxy: {
       "/api": "http://localhost:5000"
     }

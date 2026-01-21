@@ -22,10 +22,19 @@ const TournamentDetailPage = () => {
   const [liveLoading, setLiveLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [resultTab, setResultTab] = useState("leaderboard");
-  const [leaderboardSort, setLeaderboardSort] = useState({ key: null, dir: null });
+  const [leaderboardSort, setLeaderboardSort] = useState({
+    key: "slot_number",
+    dir: "asc"
+  });
   const [matchesSort, setMatchesSort] = useState({ key: null, dir: null });
-  const [playerSort, setPlayerSort] = useState({ key: null, dir: null });
-  const [teamStatsSort, setTeamStatsSort] = useState({ key: null, dir: null });
+  const [playerSort, setPlayerSort] = useState({
+    key: "total_points",
+    dir: "desc"
+  });
+  const [teamStatsSort, setTeamStatsSort] = useState({
+    key: "slot_number",
+    dir: "asc"
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -116,6 +125,33 @@ const TournamentDetailPage = () => {
     return new Map(teams.map((team) => [team.team_id, team.team_name]));
   }, [teams]);
 
+  const slotNameMap = useMemo(() => {
+    const map = new Map();
+    const participants = tournament?.participants || [];
+    const teamParticipants = participants.filter(
+      (participant) => participant.type === "team"
+    );
+    const sortedTeams = [...teamParticipants].sort((a, b) => {
+      if (a.slot_number && b.slot_number) {
+        return a.slot_number - b.slot_number;
+      }
+      if (a.slot_number) {
+        return -1;
+      }
+      if (b.slot_number) {
+        return 1;
+      }
+      return String(a.linked_team_id || "").localeCompare(String(b.linked_team_id || ""));
+    });
+    sortedTeams.forEach((participant, index) => {
+      const name =
+        teamMap.get(participant.linked_team_id) || participant.linked_team_id || "-";
+      const slotKey = String(index + 1);
+      map.set(slotKey, name);
+    });
+    return map;
+  }, [tournament, teamMap, playerMap]);
+
   const sortRows = (rows, sort) => {
     if (!sort.key || !sort.dir) {
       return rows;
@@ -124,6 +160,9 @@ const TournamentDetailPage = () => {
     sorted.sort((a, b) => {
       const aVal = a[sort.key];
       const bVal = b[sort.key];
+      const aNum = Number(aVal);
+      const bNum = Number(bVal);
+      const bothNumeric = Number.isFinite(aNum) && Number.isFinite(bNum);
       if (aVal === bVal) {
         return 0;
       }
@@ -133,14 +172,21 @@ const TournamentDetailPage = () => {
       if (bVal === undefined || bVal === null) {
         return -1;
       }
-      if (typeof aVal === "number" && typeof bVal === "number") {
-        return sort.dir === "asc" ? aVal - bVal : bVal - aVal;
+      if (bothNumeric) {
+        return sort.dir === "asc" ? aNum - bNum : bNum - aNum;
       }
       return sort.dir === "asc"
         ? String(aVal).localeCompare(String(bVal))
         : String(bVal).localeCompare(String(aVal));
     });
     return sorted;
+  };
+
+  const sortIcon = (sortState, key) => {
+    if (sortState.key !== key) {
+      return "↕";
+    }
+    return sortState.dir === "asc" ? "▲" : "▼";
   };
 
   const handleSort = (setSortState, key) => {
@@ -158,15 +204,44 @@ const TournamentDetailPage = () => {
     });
   };
 
+  const teamSlotMap = useMemo(() => {
+    const map = new Map();
+    const participants = tournament?.participants || [];
+    const teamsOnly = participants.filter((participant) => participant.type === "team");
+    const sorted = [...teamsOnly].sort((a, b) => {
+      if (a.slot_number && b.slot_number) {
+        return a.slot_number - b.slot_number;
+      }
+      if (a.slot_number) {
+        return -1;
+      }
+      if (b.slot_number) {
+        return 1;
+      }
+      return String(a.linked_team_id || "").localeCompare(String(b.linked_team_id || ""));
+    });
+    sorted.forEach((participant, index) => {
+      map.set(participant.linked_team_id, index + 1);
+    });
+    return map;
+  }, [tournament]);
+
   const normalizedTeamStats = useMemo(() => {
     return teamStatsSource.map((team, index) => ({
       ...team,
+      slot_number: Number.isFinite(Number(team.team_id))
+        ? Number(team.team_id)
+        : teamSlotMap.get(String(team.team_id)) || index + 1,
+      team_name:
+        slotNameMap.get(String(team.team_id)) ||
+        team.team_name ||
+        `Team ${team.team_id}`,
       rank: index + 1,
       place_points:
         team.place_points ??
         ((team.total_points ?? 0) - (team.total_kills ?? 0))
     }));
-  }, [teamStatsSource]);
+  }, [teamStatsSource, slotNameMap, teamSlotMap]);
 
   const normalizedMatches = useMemo(() => {
     return matchesSource.map((match) => ({
@@ -176,9 +251,13 @@ const TournamentDetailPage = () => {
         `${match.game_mode || "Match"} • ${
           match.created_at ? new Date(match.created_at).toLocaleString() : "-"
         }`,
-      winner_team_name: match.winner_team_name || match.winner_team_id || "-"
+      winner_team_name:
+        slotNameMap.get(String(match.winner_team_id)) ||
+        match.winner_team_name ||
+        match.winner_team_id ||
+        "-"
     }));
-  }, [matchesSource]);
+  }, [matchesSource, slotNameMap]);
 
   const normalizedPlayerStats = useMemo(() => {
     return playerStatsSource.map((player, index) => {
@@ -211,8 +290,12 @@ const TournamentDetailPage = () => {
   }, [normalizedTeamStats, teamStatsSort]);
 
   const sortedMatches = useMemo(() => {
-    return sortRows(normalizedMatches, matchesSort);
-  }, [normalizedMatches, matchesSort]);
+    return [...normalizedMatches].sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return aTime - bTime;
+    });
+  }, [normalizedMatches]);
 
   const sortedPlayerStats = useMemo(() => {
     return sortRows(normalizedPlayerStats, playerSort);
@@ -388,23 +471,31 @@ const TournamentDetailPage = () => {
                   <table className="stats-table leaderboard">
                     <thead>
                       <tr>
-                        <th onClick={() => handleSort(setLeaderboardSort, "rank")}>
-                          Rank
+                        <th onClick={() => handleSort(setLeaderboardSort, "slot_number")}>
+                          Slot Number{" "}
+                          <span className="sort-icon">
+                            {sortIcon(leaderboardSort, "slot_number")}
+                          </span>
                         </th>
-                        <th onClick={() => handleSort(setLeaderboardSort, "team_name")}>
-                          Team
-                        </th>
-                        <th onClick={() => handleSort(setLeaderboardSort, "matches_played")}>
-                          Matches
-                        </th>
+                        <th>Team</th>
+                        <th>Matches</th>
                         <th onClick={() => handleSort(setLeaderboardSort, "place_points")}>
-                          Place PTS
+                          Place PTS{" "}
+                          <span className="sort-icon">
+                            {sortIcon(leaderboardSort, "place_points")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setLeaderboardSort, "total_kills")}>
-                          Kills
+                          Kills{" "}
+                          <span className="sort-icon">
+                            {sortIcon(leaderboardSort, "total_kills")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setLeaderboardSort, "total_points")}>
-                          Total Points
+                          Total Points{" "}
+                          <span className="sort-icon">
+                            {sortIcon(leaderboardSort, "total_points")}
+                          </span>
                         </th>
                       </tr>
                     </thead>
@@ -418,7 +509,7 @@ const TournamentDetailPage = () => {
                       ) : (
                         sortedTeamStats.map((team, index) => (
                           <tr key={team.team_id || `${team.team_name}-${index}`}>
-                            <td>{index + 1}</td>
+                            <td>{team.slot_number || index + 1}</td>
                             <td>{team.team_name || "-"}</td>
                             <td>{team.matches_played ?? "-"}</td>
                             <td>{team.place_points ?? "-"}</td>
@@ -435,15 +526,9 @@ const TournamentDetailPage = () => {
                   <table className="stats-table leaderboard">
                     <thead>
                       <tr>
-                        <th onClick={() => handleSort(setMatchesSort, "match_detail")}>
-                          Match Details
-                        </th>
-                        <th onClick={() => handleSort(setMatchesSort, "map_name")}>
-                          Map
-                        </th>
-                        <th onClick={() => handleSort(setMatchesSort, "winner_team_name")}>
-                          Champions
-                        </th>
+                        <th>Match Details</th>
+                        <th>Map</th>
+                        <th>Champions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -476,38 +561,56 @@ const TournamentDetailPage = () => {
                   <table className="stats-table leaderboard">
                     <thead>
                       <tr>
-                        <th onClick={() => handleSort(setPlayerSort, "rank")}>
-                          Rank
-                        </th>
-                        <th onClick={() => handleSort(setPlayerSort, "player_name")}>
-                          Player
-                        </th>
-                        <th onClick={() => handleSort(setPlayerSort, "matches_played")}>
-                          Matches
-                        </th>
+                        <th>Rank</th>
+                        <th>Player</th>
+                        <th>Matches</th>
                         <th onClick={() => handleSort(setPlayerSort, "total_kills")}>
-                          Kills
+                          Kills{" "}
+                          <span className="sort-icon">
+                            {sortIcon(playerSort, "total_kills")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setPlayerSort, "assists")}>
-                          Assists
+                          Assists{" "}
+                          <span className="sort-icon">
+                            {sortIcon(playerSort, "assists")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setPlayerSort, "revives")}>
-                          Revives
+                          Revives{" "}
+                          <span className="sort-icon">
+                            {sortIcon(playerSort, "revives")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setPlayerSort, "deaths")}>
-                          Deaths
+                          Deaths{" "}
+                          <span className="sort-icon">
+                            {sortIcon(playerSort, "deaths")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setPlayerSort, "avg_kills")}>
-                          Avg Kills
+                          Avg Kills{" "}
+                          <span className="sort-icon">
+                            {sortIcon(playerSort, "avg_kills")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setPlayerSort, "avg_deaths")}>
-                          Avg Deaths
+                          Avg Deaths{" "}
+                          <span className="sort-icon">
+                            {sortIcon(playerSort, "avg_deaths")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setPlayerSort, "kd_ratio")}>
-                          K/D Ratio
+                          K/D Ratio{" "}
+                          <span className="sort-icon">
+                            {sortIcon(playerSort, "kd_ratio")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setPlayerSort, "total_points")}>
-                          Total
+                          Total{" "}
+                          <span className="sort-icon">
+                            {sortIcon(playerSort, "total_points")}
+                          </span>
                         </th>
                       </tr>
                     </thead>
@@ -549,29 +652,43 @@ const TournamentDetailPage = () => {
                   <table className="stats-table leaderboard">
                     <thead>
                       <tr>
-                        <th onClick={() => handleSort(setTeamStatsSort, "rank")}>
-                          Rank
+                        <th onClick={() => handleSort(setTeamStatsSort, "slot_number")}>
+                          Slot Number{" "}
+                          <span className="sort-icon">
+                            {sortIcon(teamStatsSort, "slot_number")}
+                          </span>
                         </th>
-                        <th onClick={() => handleSort(setTeamStatsSort, "team_name")}>
-                          Team
-                        </th>
-                        <th onClick={() => handleSort(setTeamStatsSort, "matches_played")}>
-                          Matches
-                        </th>
+                        <th>Team</th>
+                        <th>Matches</th>
                         <th onClick={() => handleSort(setTeamStatsSort, "wins")}>
-                          Wins
+                          Wins{" "}
+                          <span className="sort-icon">
+                            {sortIcon(teamStatsSort, "wins")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setTeamStatsSort, "total_kills")}>
-                          Kills
+                          Kills{" "}
+                          <span className="sort-icon">
+                            {sortIcon(teamStatsSort, "total_kills")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setTeamStatsSort, "avg_placement")}>
-                          Avg Placement
+                          Avg Placement{" "}
+                          <span className="sort-icon">
+                            {sortIcon(teamStatsSort, "avg_placement")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setTeamStatsSort, "win_rate")}>
-                          Win Rate
+                          Win Rate{" "}
+                          <span className="sort-icon">
+                            {sortIcon(teamStatsSort, "win_rate")}
+                          </span>
                         </th>
                         <th onClick={() => handleSort(setTeamStatsSort, "total_points")}>
-                          Total Points
+                          Total Points{" "}
+                          <span className="sort-icon">
+                            {sortIcon(teamStatsSort, "total_points")}
+                          </span>
                         </th>
                       </tr>
                     </thead>
@@ -591,7 +708,7 @@ const TournamentDetailPage = () => {
                       ) : (
                         sortedTeamStatsTable.map((team, index) => (
                           <tr key={team.team_id || `${team.team_name}-${index}`}>
-                            <td>{index + 1}</td>
+                            <td>{team.slot_number || index + 1}</td>
                             <td>{team.team_name || "-"}</td>
                             <td>{team.matches_played ?? "-"}</td>
                             <td>{team.wins ?? "-"}</td>

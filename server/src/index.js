@@ -9,12 +9,20 @@ const { nanoid } = require("nanoid");
 const { getCollection, setCollection, updateById } = require("./storage");
 const { verifyAdmin, createToken, authMiddleware } = require("./auth");
 const {
-  aggregateTournament,
-  aggregateCustomMatches,
-  aggregateMatchIds,
+  aggregateMatchPayloads,
+  fetchMatchPayloads,
+  fetchTournamentMatchIds,
   fetchPlayerMatches,
   fetchMatchSummaries
 } = require("./pubg");
+const {
+  dbEnabled,
+  initDb,
+  getMatchesByIds,
+  upsertMatches,
+  linkTournamentMatches,
+  getTournamentMatchIds
+} = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,30 +50,19 @@ const ensureBoolean = (value) => {
   return value;
 };
 
-const normalizePlayerNames = (value) => {
-  if (!value) {
-    return [];
-  }
-  if (Array.isArray(value)) {
-    return value.map((name) => String(name).trim()).filter(Boolean);
-  }
-  return String(value)
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean);
-};
-
 const normalizeMatchIds = (value) => {
   if (!value) {
     return [];
   }
   if (Array.isArray(value)) {
-    return value.map((id) => String(id).trim()).filter(Boolean);
+    const ids = value.map((id) => String(id).trim()).filter(Boolean);
+    return Array.from(new Set(ids));
   }
-  return String(value)
+  const ids = String(value)
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
+  return Array.from(new Set(ids));
 };
 
 const sortByField = (items, field, direction = "desc") => {
@@ -147,6 +144,35 @@ app.get("/api/pubg/player-matches", async (req, res) => {
   }
 });
 
+app.get("/api/pubg/matches/:id", async (req, res) => {
+  const apiKey = process.env.PUBG_API_KEY;
+  if (!apiKey) {
+    return res.status(400).json({ error: "PUBG API key not configured" });
+  }
+  if (!dbEnabled) {
+    return res.status(500).json({ error: "Database not configured" });
+  }
+  const matchId = String(req.params.id || "").trim();
+  if (!matchId) {
+    return res.status(400).json({ error: "Match ID is required" });
+  }
+  try {
+    const stored = await getMatchesByIds([matchId]);
+    if (stored.has(matchId)) {
+      return res.json({ source: "db", match: stored.get(matchId) });
+    }
+    const payloads = await fetchMatchPayloads({ apiKey, matchIds: [matchId] });
+    const match = payloads[0];
+    if (!match) {
+      return res.status(404).json({ error: "Match not found" });
+    }
+    await upsertMatches([match]);
+    return res.json({ source: "api", match });
+  } catch (error) {
+    return res.status(502).json({ error: "PUBG API error", details: error.message });
+  }
+});
+
 app.get("/api/featured-tournaments", (req, res) => {
   const tournaments = getCollection("tournaments");
   const featured = tournaments
@@ -215,47 +241,70 @@ app.get("/api/tournaments/:id/live", async (req, res) => {
   if (!tournament.api_key_required || !apiKey) {
     return res.status(400).json({ error: "PUBG API key not configured" });
   }
+  if (!dbEnabled) {
+    return res.status(500).json({ error: "Database not configured" });
+  }
   try {
     const limit = Number(req.query.limit || 12);
     const fresh = String(req.query.fresh || "").toLowerCase() === "true";
-    let data;
+    let matchIds = [];
     if (tournament.custom_match_mode) {
-      const matchIds = normalizeMatchIds(tournament.custom_match_ids);
-      const allowNonCustom = tournament.allow_non_custom === true;
-      if (matchIds.length) {
-        data = await aggregateMatchIds({
-          apiKey,
-          matchIds,
-          limit,
-          fresh,
-          onlyCustom: !allowNonCustom
-        });
-      } else {
-        const playerNames = normalizePlayerNames(tournament.custom_player_names);
-        if (!playerNames.length) {
-          return res.status(400).json({
-            error: "Custom match needs match IDs or player names"
-          });
-        }
-        data = await aggregateCustomMatches({
-          apiKey,
-          playerNames,
-          limit,
-          fresh,
-          includeNonCustom: allowNonCustom
+      matchIds = normalizeMatchIds(tournament.custom_match_ids);
+      if (!matchIds.length) {
+        return res.status(400).json({
+          error: "Custom match needs match IDs"
         });
       }
     } else {
       if (!tournament.pubg_tournament_id) {
         return res.status(400).json({ error: "PUBG tournament ID not configured" });
       }
-      data = await aggregateTournament({
-        apiKey,
-        tournamentId: tournament.pubg_tournament_id,
-        limit,
-        fresh
-      });
+      if (!fresh) {
+        matchIds = await getTournamentMatchIds(tournament.tournament_id);
+      }
+      if (!matchIds.length || fresh) {
+        matchIds = await fetchTournamentMatchIds({
+          apiKey,
+          tournamentId: tournament.pubg_tournament_id
+        });
+        await linkTournamentMatches(tournament.tournament_id, matchIds);
+      }
     }
+    matchIds = normalizeMatchIds(matchIds);
+    if (!matchIds.length) {
+      return res.status(400).json({ error: "No match IDs available" });
+    }
+
+    const limitedIds = matchIds.slice(0, limit);
+    const storedMatches = await getMatchesByIds(limitedIds);
+    const missingIds = limitedIds.filter((id) => !storedMatches.has(id));
+
+    let fetchedPayloads = [];
+    if (missingIds.length) {
+      fetchedPayloads = await fetchMatchPayloads({ apiKey, matchIds: missingIds });
+      await upsertMatches(fetchedPayloads);
+    }
+    await linkTournamentMatches(tournament.tournament_id, matchIds);
+
+    const payloadMap = new Map(storedMatches);
+    fetchedPayloads.forEach((payload) => {
+      if (payload?.data?.id) {
+        payloadMap.set(payload.data.id, payload);
+      }
+    });
+    const orderedPayloads = limitedIds
+      .map((id) => payloadMap.get(id))
+      .filter(Boolean);
+    const allowNonCustom = tournament.allow_non_custom === true;
+    const data = aggregateMatchPayloads({
+      matchPayloads: orderedPayloads,
+      matchCount: matchIds.length,
+      cacheId: tournament.tournament_id,
+      limit,
+      fresh,
+      onlyCustom: tournament.custom_match_mode && !allowNonCustom,
+      tournamentId: tournament.pubg_tournament_id || tournament.tournament_id
+    });
     res.json({
       source: tournament.custom_match_mode ? "pubg-custom" : "pubg",
       tournament_id: tournament.tournament_id,
@@ -355,7 +404,6 @@ app.post("/api/admin/tournaments", (req, res) => {
     pubg_tournament_id: payload.pubg_tournament_id || "",
     custom_match_mode: ensureBoolean(payload.custom_match_mode) === true,
     allow_non_custom: ensureBoolean(payload.allow_non_custom) === true,
-    custom_player_names: normalizePlayerNames(payload.custom_player_names),
     custom_match_ids: normalizeMatchIds(payload.custom_match_ids)
   };
   tournaments.push(tournament);
@@ -389,9 +437,6 @@ app.put("/api/admin/tournaments/:id", (req, res) => {
     }
     if (Object.prototype.hasOwnProperty.call(payload, "allow_non_custom")) {
       next.allow_non_custom = ensureBoolean(payload.allow_non_custom) === true;
-    }
-    if (Object.prototype.hasOwnProperty.call(payload, "custom_player_names")) {
-      next.custom_player_names = normalizePlayerNames(payload.custom_player_names);
     }
     if (Object.prototype.hasOwnProperty.call(payload, "custom_match_ids")) {
       next.custom_match_ids = normalizeMatchIds(payload.custom_match_ids);
@@ -698,6 +743,14 @@ app.delete("/api/admin/announcements/:id", (req, res) => {
   res.status(204).send();
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+const startServer = async () => {
+  await initDb();
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+};
+
+startServer().catch((error) => {
+  console.error("Failed to start server:", error.message);
+  process.exit(1);
 });

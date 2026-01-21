@@ -9,6 +9,7 @@ import AdminPage from "./pages/AdminPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
 import ContactPage from "./pages/ContactPage";
 import MatchIdExtractPage from "./pages/MatchIdExtractPage";
+import MatchDetailDownloadPage from "./pages/MatchDetailDownloadPage";
 
 const App = () => {
   return (
@@ -22,6 +23,7 @@ const App = () => {
           <Route path="/announcements" element={<AnnouncementsPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/matchidextract" element={<MatchIdExtractPage />} />
+          <Route path="/matchdetails" element={<MatchDetailDownloadPage />} />
           <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </ErrorBoundary>

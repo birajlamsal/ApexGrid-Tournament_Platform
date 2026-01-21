@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { Link } from "react-router-dom";
+import useEmblaCarousel from "embla-carousel-react";
 import {
   fetchAnnouncements,
   fetchFeaturedTournaments,
@@ -19,6 +20,11 @@ const HomePage = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [upcomingMatches, setUpcomingMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [emblaRef] = useEmblaCarousel({
+    dragFree: true,
+    containScroll: "trimSnaps",
+    align: "start"
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -145,38 +151,42 @@ const HomePage = () => {
           <h2>Featured Tournaments</h2>
           <Link to="/tournaments">View all</Link>
         </div>
-        <div className="card-grid">
-          {loading && <SkeletonCards count={3} />}
-          {!loading && featured.length === 0 && (
-            <EmptyState message="No featured tournaments yet." />
-          )}
-          {!loading &&
-            featured.map((tournament) => (
-              <Link
-                to={`/tournaments/${tournament.tournament_id}`}
-                key={tournament.tournament_id}
-                className="tournament-card"
-              >
-                <div className="card-top">
-                  <span className={`status-badge ${tournament.status}`}>
-                    {tournament.status}
-                  </span>
-                  <h3>{tournament.name}</h3>
-                  <p>{tournament.description}</p>
+        {loading && <div className="card-grid"><SkeletonCards count={3} /></div>}
+        {!loading && featured.length === 0 && (
+          <EmptyState message="No featured tournaments yet." />
+        )}
+        {!loading && featured.length > 0 && (
+          <div className="embla" ref={emblaRef}>
+            <div className="embla__container">
+              {featured.map((tournament) => (
+                <div className="embla__slide" key={tournament.tournament_id}>
+                  <Link
+                    to={`/tournaments/${tournament.tournament_id}`}
+                    className="tournament-card"
+                  >
+                    <div className="card-top">
+                      <span className={`status-badge ${tournament.status}`}>
+                        {tournament.status}
+                      </span>
+                      <h3>{tournament.name}</h3>
+                      <p>{tournament.description}</p>
+                    </div>
+                    <div className="card-bottom">
+                      <div>
+                        <span>Prize Pool</span>
+                        <strong>${tournament.prize_pool}</strong>
+                      </div>
+                      <div>
+                        <span>Registration</span>
+                        <strong>${tournament.registration_charge}</strong>
+                      </div>
+                    </div>
+                  </Link>
                 </div>
-                <div className="card-bottom">
-                  <div>
-                    <span>Prize Pool</span>
-                    <strong>${tournament.prize_pool}</strong>
-                  </div>
-                  <div>
-                    <span>Registration</span>
-                    <strong>${tournament.registration_charge}</strong>
-                  </div>
-                </div>
-              </Link>
-            ))}
-        </div>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="section reveal split-section">
