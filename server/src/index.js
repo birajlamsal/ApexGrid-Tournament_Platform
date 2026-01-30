@@ -131,6 +131,17 @@ app.get("/api/pubg/player-matches", async (req, res) => {
       apiKey,
       matchIds: matchIds.slice(0, metaLimit)
     });
+    if (dbEnabled && summaries.length) {
+      try {
+        const payloads = await fetchMatchPayloads({
+          apiKey,
+          matchIds: summaries.map((match) => match.match_id)
+        });
+        await upsertMatches(payloads);
+      } catch (dbError) {
+        console.warn(`[player-matches] Failed to store match payloads: ${dbError.message}`);
+      }
+    }
     const filtered = onlyCustom
       ? summaries.filter((match) => match.is_custom_match === true)
       : summaries;
@@ -145,12 +156,12 @@ app.get("/api/pubg/player-matches", async (req, res) => {
 });
 
 app.get("/api/pubg/matches/:id", async (req, res) => {
+  if (!dbEnabled) {
+    return res.status(500).json({ error: "Database not configured" });
+  }
   const apiKey = process.env.PUBG_API_KEY;
   if (!apiKey) {
     return res.status(400).json({ error: "PUBG API key not configured" });
-  }
-  if (!dbEnabled) {
-    return res.status(500).json({ error: "Database not configured" });
   }
   const matchId = String(req.params.id || "").trim();
   if (!matchId) {
@@ -164,12 +175,12 @@ app.get("/api/pubg/matches/:id", async (req, res) => {
     const payloads = await fetchMatchPayloads({ apiKey, matchIds: [matchId] });
     const match = payloads[0];
     if (!match) {
-      return res.status(404).json({ error: "Match not found" });
+      return res.status(404).json({ error: "Match not found in API" });
     }
     await upsertMatches([match]);
     return res.json({ source: "api", match });
   } catch (error) {
-    return res.status(502).json({ error: "PUBG API error", details: error.message });
+    return res.status(502).json({ error: "Failed to fetch match", details: error.message });
   }
 });
 
@@ -237,10 +248,6 @@ app.get("/api/tournaments/:id/live", async (req, res) => {
   if (!tournament) {
     return res.status(404).json({ error: "Tournament not found" });
   }
-  const apiKey = tournament.tournament_api_key || process.env.PUBG_API_KEY;
-  if (!tournament.api_key_required || !apiKey) {
-    return res.status(400).json({ error: "PUBG API key not configured" });
-  }
   if (!dbEnabled) {
     return res.status(500).json({ error: "Database not configured" });
   }
@@ -263,11 +270,14 @@ app.get("/api/tournaments/:id/live", async (req, res) => {
         matchIds = await getTournamentMatchIds(tournament.tournament_id);
       }
       if (!matchIds.length || fresh) {
+        const apiKey = tournament.tournament_api_key || process.env.PUBG_API_KEY;
+        if (!apiKey) {
+          return res.status(400).json({ error: "PUBG API key not configured" });
+        }
         matchIds = await fetchTournamentMatchIds({
           apiKey,
           tournamentId: tournament.pubg_tournament_id
         });
-        await linkTournamentMatches(tournament.tournament_id, matchIds);
       }
     }
     matchIds = normalizeMatchIds(matchIds);
@@ -276,24 +286,25 @@ app.get("/api/tournaments/:id/live", async (req, res) => {
     }
 
     const limitedIds = matchIds.slice(0, limit);
-    const storedMatches = await getMatchesByIds(limitedIds);
+    await linkTournamentMatches(tournament.tournament_id, matchIds);
+    let storedMatches = await getMatchesByIds(limitedIds);
     const missingIds = limitedIds.filter((id) => !storedMatches.has(id));
 
-    let fetchedPayloads = [];
     if (missingIds.length) {
-      fetchedPayloads = await fetchMatchPayloads({ apiKey, matchIds: missingIds });
-      await upsertMatches(fetchedPayloads);
-    }
-    await linkTournamentMatches(tournament.tournament_id, matchIds);
-
-    const payloadMap = new Map(storedMatches);
-    fetchedPayloads.forEach((payload) => {
-      if (payload?.data?.id) {
-        payloadMap.set(payload.data.id, payload);
+      const apiKey = tournament.tournament_api_key || process.env.PUBG_API_KEY;
+      if (!apiKey) {
+        return res.status(400).json({ error: "PUBG API key not configured" });
       }
-    });
+      const fetchedPayloads = await fetchMatchPayloads({
+        apiKey,
+        matchIds: missingIds
+      });
+      await upsertMatches(fetchedPayloads);
+      storedMatches = await getMatchesByIds(limitedIds);
+    }
+
     const orderedPayloads = limitedIds
-      .map((id) => payloadMap.get(id))
+      .map((id) => storedMatches.get(id))
       .filter(Boolean);
     const allowNonCustom = tournament.allow_non_custom === true;
     const data = aggregateMatchPayloads({
@@ -306,7 +317,11 @@ app.get("/api/tournaments/:id/live", async (req, res) => {
       tournamentId: tournament.pubg_tournament_id || tournament.tournament_id
     });
     res.json({
-      source: tournament.custom_match_mode ? "pubg-custom" : "pubg",
+      source: missingIds.length
+        ? tournament.custom_match_mode
+          ? "db+pubg-custom"
+          : "db+pubg"
+        : "db",
       tournament_id: tournament.tournament_id,
       pubg_tournament_id: tournament.pubg_tournament_id,
       ...data
@@ -368,6 +383,22 @@ app.post("/api/admin/login", async (req, res) => {
 });
 
 app.use("/api/admin", authMiddleware);
+
+app.get("/api/admin/matches/exists/:id", async (req, res) => {
+  if (!dbEnabled) {
+    return res.status(500).json({ error: "Database not configured" });
+  }
+  const matchId = String(req.params.id || "").trim();
+  if (!matchId) {
+    return res.status(400).json({ error: "Match ID is required" });
+  }
+  try {
+    const stored = await getMatchesByIds([matchId]);
+    return res.json({ match_id: matchId, exists: stored.has(matchId) });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to read match from database" });
+  }
+});
 
 app.get("/api/admin/tournaments", (req, res) => {
   res.json(getCollection("tournaments"));

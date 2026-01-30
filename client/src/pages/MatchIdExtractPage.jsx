@@ -5,6 +5,7 @@ const MatchIdExtractPage = () => {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [filter, setFilter] = useState("all");
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -18,9 +19,7 @@ const MatchIdExtractPage = () => {
     try {
       setLoading(true);
       const response = await fetch(
-        `/api/pubg/player-matches?name=${encodeURIComponent(
-          trimmed
-        )}&includeMeta=true&onlyCustom=true`
+        `/api/pubg/player-matches?name=${encodeURIComponent(trimmed)}&includeMeta=true`
       );
       const contentType = response.headers.get("content-type") || "";
       const payload = contentType.includes("application/json")
@@ -45,6 +44,17 @@ const MatchIdExtractPage = () => {
     }
   };
 
+  const filteredMatches = matches.filter((match) => {
+    if (filter === "all") {
+      return true;
+    }
+    if (!match || typeof match !== "object") {
+      return false;
+    }
+    const isCustom = match.is_custom_match === true;
+    return filter === "custom" ? isCustom : !isCustom;
+  });
+
   return (
     <main className="matchid-page">
       <section className="page-hero">
@@ -64,29 +74,59 @@ const MatchIdExtractPage = () => {
             Fetch Matches
           </button>
         </form>
+        <div className="matchid-filters">
+          <button
+            type="button"
+            className={`matchid-filter ${filter === "all" ? "active" : ""}`}
+            onClick={() => setFilter("all")}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            className={`matchid-filter ${filter === "custom" ? "active" : ""}`}
+            onClick={() => setFilter("custom")}
+          >
+            Custom
+          </button>
+          <button
+            type="button"
+            className={`matchid-filter ${filter === "normal" ? "active" : ""}`}
+            onClick={() => setFilter("normal")}
+          >
+            Normal
+          </button>
+        </div>
         {error && <div className="empty-state">{error}</div>}
         {loading && <div className="empty-state">Loading matches...</div>}
-        {!loading && matches.length > 0 && (
+        {!loading && filteredMatches.length > 0 && (
           <div className="matchid-list">
-            {matches.map((match) => (
-              <div key={match.match_id || match} className="matchid-row matchid-custom">
+            {filteredMatches.map((match) => {
+              const matchId = match.match_id || match;
+              const isCustom = match?.is_custom_match === true;
+              const rowClass = isCustom ? "matchid-custom" : "matchid-normal";
+              const label = isCustom ? "Custom" : "Normal";
+              return (
+                <div key={matchId} className={`matchid-row ${rowClass}`}>
                 <div className="matchid-main">
-                  <strong>{match.match_id || match}</strong>
+                  <strong>{matchId}</strong>
                   {match.game_mode && (
                     <span className="muted">
                       {match.game_mode} • {match.map_name || "Unknown map"}
                     </span>
                   )}
                 </div>
+                <span className={`matchid-status ${rowClass}`}>{label}</span>
                 <button
                   type="button"
                   className="ghost-button"
-                  onClick={() => handleCopy(match.match_id || match)}
+                  onClick={() => handleCopy(matchId)}
                 >
                   Copy
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

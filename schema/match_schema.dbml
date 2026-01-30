@@ -1,0 +1,102 @@
+Project pubg_matches {
+  database_type: "PostgreSQL"
+}
+
+Table matches {
+  match_id text [pk, not null]
+  payload jsonb [not null]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table tournament_matches {
+  tournament_id text [not null]
+  match_id text [not null]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (tournament_id, match_id) [pk]
+  }
+}
+
+Table match_details {
+  match_id text [pk, not null]
+  created_at timestamptz
+  duration int
+  game_mode text
+  is_custom_match boolean
+  map_name text
+  match_type text
+  season_state text
+  shard_id text
+  title_id text
+  stats jsonb
+  tags jsonb
+}
+
+Table match_assets {
+  asset_id text [pk, not null]
+  match_id text [not null]
+  url text
+  created_at timestamptz
+  description text
+  name text
+}
+
+Table match_rosters {
+  roster_id text [pk, not null]
+  match_id text [not null]
+  team_id text
+  rank int
+  won boolean
+  shard_id text
+}
+
+Table match_participants {
+  participant_id text [pk, not null]
+  match_id text [not null]
+  roster_id text
+  player_id text
+  player_name text
+  shard_id text
+  dbnos int
+  assists int
+  boosts int
+  damage_dealt double
+  death_type text
+  headshot_kills int
+  heals int
+  kill_place int
+  kill_streaks int
+  kills int
+  longest_kill double
+  revives int
+  ride_distance double
+  road_kills int
+  swim_distance double
+  team_kills int
+  time_survived double
+  vehicle_destroys int
+  walk_distance double
+  weapons_acquired int
+  win_place int
+  raw_stats jsonb
+}
+
+Table match_roster_participants {
+  roster_id text [not null]
+  participant_id text [not null]
+
+  indexes {
+    (roster_id, participant_id) [pk]
+  }
+}
+
+Ref: tournament_matches.match_id > matches.match_id
+Ref: match_details.match_id > matches.match_id
+Ref: match_assets.match_id > matches.match_id
+Ref: match_rosters.match_id > matches.match_id
+Ref: match_participants.match_id > matches.match_id
+Ref: match_participants.roster_id > match_rosters.roster_id
+Ref: match_roster_participants.roster_id > match_rosters.roster_id
+Ref: match_roster_participants.participant_id > match_participants.participant_id

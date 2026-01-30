@@ -133,32 +133,57 @@ const TournamentDetailPage = () => {
     return new Map(teams.map((team) => [team.team_id, team.team_name]));
   }, [teams]);
 
+  const teamIdNameMap = useMemo(() => {
+    const map = new Map();
+    const participants = tournament?.participants || [];
+    participants
+      .filter((participant) => participant.type === "team")
+      .forEach((participant) => {
+        if (!participant.linked_team_id) {
+          return;
+        }
+        const name =
+          teamMap.get(participant.linked_team_id) || participant.linked_team_id || "-";
+        map.set(participant.linked_team_id, name);
+      });
+    return map;
+  }, [tournament, teamMap]);
+
   const slotNameMap = useMemo(() => {
     const map = new Map();
     const participants = tournament?.participants || [];
-    const teamParticipants = participants.filter(
-      (participant) => participant.type === "team"
-    );
-    const sortedTeams = [...teamParticipants].sort((a, b) => {
-      if (a.slot_number && b.slot_number) {
-        return a.slot_number - b.slot_number;
-      }
-      if (a.slot_number) {
-        return -1;
-      }
-      if (b.slot_number) {
-        return 1;
-      }
-      return String(a.linked_team_id || "").localeCompare(String(b.linked_team_id || ""));
-    });
-    sortedTeams.forEach((participant, index) => {
-      const name =
-        teamMap.get(participant.linked_team_id) || participant.linked_team_id || "-";
-      const slotKey = String(index + 1);
-      map.set(slotKey, name);
-    });
+    participants
+      .filter((participant) => participant.type === "team")
+      .forEach((participant, index) => {
+        const slotKey = participant.slot_number
+          ? String(participant.slot_number)
+          : String(index + 1);
+        const name =
+          teamMap.get(participant.linked_team_id) || participant.linked_team_id || "-";
+        map.set(slotKey, name);
+      });
     return map;
-  }, [tournament, teamMap, playerMap]);
+  }, [tournament, teamMap]);
+
+  const manualPointWinners = useMemo(() => {
+    if (!result?.by_points) {
+      return null;
+    }
+    const names = [
+      result.by_points.first,
+      result.by_points.second,
+      result.by_points.third
+    ].filter(Boolean);
+    if (!names.length) {
+      return null;
+    }
+    return names.map((name, index) => ({
+      place: index + 1,
+      name,
+      points: "-",
+      kills: "-"
+    }));
+  }, [result]);
 
   const sortRows = (rows, sort) => {
     if (!sort.key || !sort.dir) {
@@ -240,16 +265,48 @@ const TournamentDetailPage = () => {
       slot_number: Number.isFinite(Number(team.team_id))
         ? Number(team.team_id)
         : teamSlotMap.get(String(team.team_id)) || index + 1,
-      team_name:
-        slotNameMap.get(String(team.team_id)) ||
-        team.team_name ||
-        `Team ${team.team_id}`,
+      team_name: (() => {
+        const genericName =
+          typeof team.team_name === "string" &&
+          /^team\s+\d+$/i.test(team.team_name.trim());
+        return (
+          (genericName ? null : team.team_name) ||
+          teamIdNameMap.get(team.team_id) ||
+          slotNameMap.get(String(team.team_id)) ||
+          `Team ${team.team_id}`
+        );
+      })(),
       rank: index + 1,
       place_points:
         team.place_points ??
         ((team.total_points ?? 0) - (team.total_kills ?? 0))
     }));
-  }, [teamStatsSource, slotNameMap, teamSlotMap]);
+  }, [teamStatsSource, slotNameMap, teamSlotMap, teamIdNameMap]);
+
+  const computedPointWinners = useMemo(() => {
+    if (!tournament || tournament.status !== "completed") {
+      return null;
+    }
+    if (!normalizedTeamStats.length) {
+      return null;
+    }
+    const sorted = [...normalizedTeamStats].sort((a, b) => {
+      const aPoints = Number(a.total_points || 0);
+      const bPoints = Number(b.total_points || 0);
+      if (aPoints === bPoints) {
+        return Number(b.total_kills || 0) - Number(a.total_kills || 0);
+      }
+      return bPoints - aPoints;
+    });
+    return sorted.slice(0, 3).map((team, index) => ({
+      place: index + 1,
+      name: team.team_name || "-",
+      points: team?.total_points ?? "-",
+      kills: team?.total_kills ?? "-"
+    }));
+  }, [normalizedTeamStats, tournament]);
+
+  const winnerList = computedPointWinners || manualPointWinners;
 
   const normalizedMatches = useMemo(() => {
     return matchesSource.map((match) => ({
@@ -330,7 +387,11 @@ const TournamentDetailPage = () => {
       <section
         className="detail-hero"
         ref={heroRef}
-        style={{ backgroundImage: `url(${tournament.banner_url})` }}
+        style={
+          tournament.banner_url
+            ? { backgroundImage: `url(${tournament.banner_url})` }
+            : undefined
+        }
       >
         <div className="detail-overlay" />
         <div className="detail-content">
@@ -359,9 +420,7 @@ const TournamentDetailPage = () => {
         <div className="detail-card">
           <h3>Tournament Details</h3>
           <ul>
-            <li>Dates: {tournament.start_date} - {tournament.end_date}</li>
-            <li>Region: {tournament.region}</li>
-            <li>Prize Pool: ${tournament.prize_pool}</li>
+            <li>End Date: {tournament.end_date || "-"}</li>
             <li>Registration Charge: ${tournament.registration_charge}</li>
             <li>Max Slots: {tournament.max_slots || "-"}</li>
             <li>API Provider: {tournament.api_provider}</li>
@@ -369,12 +428,87 @@ const TournamentDetailPage = () => {
         </div>
         <div className="detail-card">
           <h3>Rules</h3>
-          <p>{tournament.rules || "Rules will be announced soon."}</p>
+          {tournament.rules ? (
+            <ul className="rules-list">
+              {extractRules(tournament.rules).map((rule, index) => {
+                const parsed = parseRuleLink(rule);
+                return (
+                  <li key={`${rule}-${index}`}>
+                    {parsed.url ? (
+                      <a href={parsed.url} target="_blank" rel="noreferrer">
+                        {parsed.text}
+                      </a>
+                    ) : (
+                      parsed.text
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p>Rules will be announced soon.</p>
+          )}
           <p className="muted">Contact: {tournament.contact_discord}</p>
         </div>
       </section>
 
-      <section className="section">
+      {tournament.status === "completed" && (
+        <section className="section">
+          <div className="section-header">
+            <h2>Winners Spotlight</h2>
+          </div>
+          {!result && !winnerList && (
+            <div className="empty-state">Winners not published yet.</div>
+          )}
+          {winnerList && (
+            <div className="winner-spotlight">
+              <div className="winner-spotlight__header">
+                <span className="winner-spotlight__kicker">Final standings</span>
+                <h3>{result?.tournament_name || tournament?.name || "Tournament"}</h3>
+              </div>
+              <div className="winner-spotlight__rows">
+                {winnerList.map((winner) => (
+                  <div
+                    key={`${winner.place}-${winner.name}`}
+                    className={`winner-row winner-row--${winner.place}`}
+                  >
+                    <div className="winner-row__place">
+                      <span className="place-number">{winner.place}</span>
+                      <span className="place-label">Place</span>
+                    </div>
+                    <div className="winner-row__title">
+                      <strong>{winner.name}</strong>
+                    </div>
+                    <div className="winner-row__stats">
+                      <div>
+                        <span>Points</span>
+                        <strong>{winner.points}</strong>
+                      </div>
+                      <div>
+                        <span>Kills</span>
+                        <strong>{winner.kills}</strong>
+                      </div>
+                    </div>
+                    <div className="winner-row__accent" aria-hidden="true" />
+                  </div>
+                ))}
+              </div>
+              {result?.most_kills && (
+                <div className="kills-highlight">
+                  <span className="badge">🔥 Most Kills</span>
+                  <h4>{result.most_kills.winner}</h4>
+                  <p>
+                    {result.most_kills.kills} kills over{" "}
+                    {result.most_kills.matches_played} matches
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="section tab-section">
         <div className="section-header">
           <div className="tab-group centered">
             {[
@@ -700,7 +834,7 @@ const TournamentDetailPage = () => {
                 )}
 
                 {resultTab === "teamStats" && (
-                  <table className="stats-table leaderboard">
+                  <table className="stats-table leaderboard team-stats-table">
                     <thead>
                       <tr>
                         <th onClick={() => handleSort(setTeamStatsSort, "slot_number")}>
@@ -777,36 +911,6 @@ const TournamentDetailPage = () => {
             </div>
           </section>
 
-          <section className="section">
-            <div className="section-header">
-              <h2>Winners Spotlight</h2>
-            </div>
-            {!result && <div className="empty-state">Winners not published yet.</div>}
-            {result && (
-              <div className="winner-grid">
-                <div className="winner-card">
-                  <h3>{result.tournament_name}</h3>
-                  {result.by_points && (
-                    <div className="podium">
-                      <PodiumSpot place="2" name={result.by_points.second} />
-                      <PodiumSpot place="1" name={result.by_points.first} highlight />
-                      <PodiumSpot place="3" name={result.by_points.third} />
-                    </div>
-                  )}
-                  {result.most_kills && (
-                    <div className="kills-highlight">
-                      <span className="badge">🔥 Most Kills</span>
-                      <h4>{result.most_kills.winner}</h4>
-                      <p>
-                        {result.most_kills.kills} kills over {result.most_kills.matches_played}{" "}
-                        matches
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
         </>
       )}
     </main>
@@ -827,27 +931,61 @@ const PodiumSpot = ({ place, name, highlight }) => (
   </div>
 );
 
+const extractRules = (value) => {
+  if (!value) {
+    return [];
+  }
+  const raw = String(value);
+  const parts = raw
+    .split(/\r?\n|;+/)
+    .map((item) => item.replace(/^[\-\*\u2022]\s*/, "").trim())
+    .filter(Boolean);
+  return parts.length ? parts : [raw.trim()];
+};
+
+const parseRuleLink = (text) => {
+  const urlMatch = text.match(/https?:\/\/\S+/);
+  if (!urlMatch) {
+    return { text, url: null };
+  }
+  const url = urlMatch[0];
+  const label = text.replace(url, "").trim() || url;
+  return { text: label, url };
+};
+
 const getGroupedPlayers = (participants = [], teamMap, allParticipants = []) => {
   const players = participants.filter((participant) => participant.type === "player");
-  const teamSlots = new Map(
-    allParticipants
-      .filter((participant) => participant.type === "team")
-      .map((participant) => [participant.linked_team_id, participant.slot_number])
+  const teamParticipants = allParticipants.filter(
+    (participant) => participant.type === "team"
   );
+  const slotToTeamId = new Map();
+  const teamSlots = new Map();
+  teamParticipants.forEach((participant) => {
+    if (participant.slot_number) {
+      slotToTeamId.set(String(participant.slot_number), participant.linked_team_id || null);
+    }
+    if (participant.linked_team_id) {
+      teamSlots.set(participant.linked_team_id, participant.slot_number || null);
+    }
+  });
+
   const groups = new Map();
   players.forEach((participant) => {
-    const teamId = participant.notes?.startsWith("team:")
+    const raw = participant.notes?.startsWith("team:")
       ? participant.notes.replace("team:", "")
       : "Unassigned";
-    if (!groups.has(teamId)) {
-      groups.set(teamId, []);
+    const resolvedTeamId = slotToTeamId.get(raw) || raw;
+    if (!groups.has(resolvedTeamId)) {
+      groups.set(resolvedTeamId, []);
     }
-    groups.get(teamId).push(participant);
+    groups.get(resolvedTeamId).push(participant);
   });
+
   return Array.from(groups.entries())
     .map(([teamId, grouped]) => ({
       teamId,
-      teamName: teamId === "Unassigned" ? "Unassigned" : teamMap?.get(teamId) || teamId,
+      teamName:
+        teamId === "Unassigned" ? "Unassigned" : teamMap?.get(teamId) || teamId,
       slotNumber: teamSlots.get(teamId) || null,
       players: grouped
     }))

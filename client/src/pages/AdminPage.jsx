@@ -108,7 +108,7 @@ const formatMatchIds = (value) => {
 };
 
 const AdminPage = () => {
-  const [token, setToken] = useState(() => localStorage.getItem("adminToken") || "");
+  const [token, setToken] = useState("");
   const [login, setLogin] = useState({ username: "admin", password: "admin" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -189,7 +189,6 @@ const AdminPage = () => {
     setError("");
     try {
       const result = await adminLogin(login);
-      localStorage.setItem("adminToken", result.token);
       setToken(result.token);
     } catch (err) {
       setError(err.message);
@@ -197,7 +196,6 @@ const AdminPage = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("adminToken");
     setToken("");
   };
 
