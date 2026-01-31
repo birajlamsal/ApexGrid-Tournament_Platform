@@ -52,51 +52,53 @@ const MatchDetailDownloadPage = () => {
 
   return (
     <main className="matchid-page">
-      <section className="page-hero">
+      <section className="page-hero tool-hero">
         <h1>Match Details Downloader</h1>
         <p>Pull match details by ID. Stored on the server after first fetch.</p>
       </section>
 
       <section className="section">
-        <form className="matchid-form" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={matchId}
-            onChange={(event) => setMatchId(event.target.value)}
-            placeholder="Enter match IDs (comma separated)"
-          />
-          <button type="submit" className="cta-button">
-            Fetch Match
-          </button>
-        </form>
-        {error && <div className="empty-state">{error}</div>}
-        {loading && <div className="empty-state">Loading match details...</div>}
-        {!loading && results.length > 0 && (
-          <div className="matchid-list">
-            {results.map((item) => (
-              <div key={item.id} className="matchid-row matchid-custom">
-                <div className="matchid-main">
-                  <strong>{item.match?.data?.id || item.id}</strong>
-                  {item.error ? (
-                    <span className="muted">Error: {item.error}</span>
-                  ) : (
-                    <>
-                      <span className="muted">
-                        Source: {item.source || "db"} •{" "}
-                        {item.match?.data?.attributes?.mapName || "-"}
-                      </span>
-                      <span className="muted">
-                        {item.source === "api"
-                          ? "Thanks! Match stored on the server."
-                          : "This match already existed on the server."}
-                      </span>
-                    </>
-                  )}
+        <div className="tool-panel">
+          <form className="matchid-form" onSubmit={handleSubmit}>
+            <input
+              type="text"
+              value={matchId}
+              onChange={(event) => setMatchId(event.target.value)}
+              placeholder="Enter match IDs (comma separated)"
+            />
+            <button type="submit" className="primary-button">
+              Fetch Match
+            </button>
+          </form>
+          {error && <div className="empty-state">{error}</div>}
+          {loading && <div className="empty-state">Loading match details...</div>}
+          {!loading && results.length > 0 && (
+            <div className="matchid-list">
+              {results.map((item) => (
+                <div key={item.id} className="matchid-row matchid-custom">
+                  <div className="matchid-main">
+                    <strong>{item.match?.data?.id || item.id}</strong>
+                    {item.error ? (
+                      <span className="muted">Error: {item.error}</span>
+                    ) : (
+                      <>
+                        <span className="muted">
+                          Source: {item.source || "db"} •{" "}
+                          {item.match?.data?.attributes?.mapName || "-"}
+                        </span>
+                        <span className="muted">
+                          {item.source === "api"
+                            ? "Thanks! Match stored on the server."
+                            : "This match already existed on the server."}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );

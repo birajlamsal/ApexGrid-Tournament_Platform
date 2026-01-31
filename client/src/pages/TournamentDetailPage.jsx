@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import gsap from "gsap";
 import {
   fetchPlayers,
@@ -21,13 +21,21 @@ const TournamentDetailPage = () => {
   useReveal();
   const heroRef = useRef(null);
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabOptions = useMemo(
+    () => ["overview", "leaderboards", "matches", "teams", "players"],
+    []
+  );
+  const initialTab = tabOptions.includes(searchParams.get("tab"))
+    ? searchParams.get("tab")
+    : "overview";
   const [tournament, setTournament] = useState(null);
   const [winners, setWinners] = useState([]);
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [liveData, setLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [resultTab, setResultTab] = useState("leaderboard");
   const [openMatchId, setOpenMatchId] = useState(null);
   const [leaderboardSort, setLeaderboardSort] = useState({
@@ -75,6 +83,20 @@ const TournamentDetailPage = () => {
   }, [id]);
 
   useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tabOptions.includes(tab) && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams, tabOptions, activeTab]);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", tabId);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  useEffect(() => {
     const loadLive = async () => {
       if (!tournament) {
         return;
@@ -99,6 +121,18 @@ const TournamentDetailPage = () => {
     };
     loadLive();
   }, [id, tournament]);
+
+  useEffect(() => {
+    if (activeTab === "leaderboards") {
+      setResultTab("leaderboard");
+    } else if (activeTab === "matches") {
+      setResultTab("matches");
+    } else if (activeTab === "teams") {
+      setResultTab("teamStats");
+    } else if (activeTab === "players") {
+      setResultTab("playerStats");
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (!heroRef.current) {
@@ -366,6 +400,47 @@ const TournamentDetailPage = () => {
     return sortRows(normalizedPlayerStats, playerSort);
   }, [normalizedPlayerStats, playerSort]);
 
+  const teamCount = useMemo(() => {
+    const participantTeams =
+      tournament?.participants?.filter((participant) => participant.type === "team") || [];
+    return normalizedTeamStats.length || participantTeams.length || 0;
+  }, [tournament, normalizedTeamStats]);
+
+  const playerCount = useMemo(() => {
+    const participantPlayers =
+      tournament?.participants?.filter((participant) => participant.type === "player") || [];
+    return normalizedPlayerStats.length || participantPlayers.length || 0;
+  }, [tournament, normalizedPlayerStats]);
+
+  const matchCount = normalizedMatches.length;
+
+  const teamParticipants = useMemo(() => {
+    return tournament?.participants?.filter((participant) => participant.type === "team") || [];
+  }, [tournament]);
+
+  const tierLabel = useMemo(() => {
+    const prize = Number(tournament?.prize_pool || 0);
+    if (prize >= 1000) {
+      return "S Tier";
+    }
+    if (prize >= 500) {
+      return "A Tier";
+    }
+    if (prize >= 200) {
+      return "B Tier";
+    }
+    return "C Tier";
+  }, [tournament]);
+
+  const resultTitle =
+    resultTab === "leaderboard"
+      ? "Leaderboards"
+      : resultTab === "matches"
+      ? "Matches"
+      : resultTab === "playerStats"
+      ? "Player Stats"
+      : "Team Stats";
+
   if (loading) {
     return (
       <main className="detail-page">
@@ -403,129 +478,150 @@ const TournamentDetailPage = () => {
               {liveData ? "PUBG API Connected" : "Manual Data"}
             </span>
           </div>
-          <h1 className="detail-title">{tournament.name}</h1>
-          <p className="detail-desc">{tournament.description}</p>
-          <div className="detail-meta">
-            <MetaCard label="Start Date" value={tournament.start_date || "-"} />
-            <MetaCard label="Prize Pool" value={`$${tournament.prize_pool}`} />
-            <MetaCard label="Server" value={tournament.region || "-"} />
-            <MetaCard label="Perspective" value={tournament.perspective || "TPP"} />
-            <MetaCard label="Mode" value={tournament.mode} />
-            <MetaCard label="Status" value={tournament.registration_status} />
-          </div>
-        </div>
-      </section>
-
-      <section className="detail-grid">
-        <div className="detail-card">
-          <h3>Tournament Details</h3>
-          <ul>
-            <li>End Date: {tournament.end_date || "-"}</li>
-            <li>Registration Charge: ${tournament.registration_charge}</li>
-            <li>Max Slots: {tournament.max_slots || "-"}</li>
-            <li>API Provider: {tournament.api_provider}</li>
-          </ul>
-        </div>
-        <div className="detail-card">
-          <h3>Rules</h3>
-          {tournament.rules ? (
-            <ul className="rules-list">
-              {extractRules(tournament.rules).map((rule, index) => {
-                const parsed = parseRuleLink(rule);
-                return (
-                  <li key={`${rule}-${index}`}>
-                    {parsed.url ? (
-                      <a href={parsed.url} target="_blank" rel="noreferrer">
-                        {parsed.text}
-                      </a>
-                    ) : (
-                      parsed.text
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p>Rules will be announced soon.</p>
-          )}
-          <p className="muted">Contact: {tournament.contact_discord}</p>
-        </div>
-      </section>
-
-      {tournament.status === "completed" && (
-        <section className="section">
-          <div className="section-header">
-            <h2>Winners Spotlight</h2>
-          </div>
-          {!result && !winnerList && (
-            <div className="empty-state">Winners not published yet.</div>
-          )}
-          {winnerList && (
-            <div className="winner-spotlight">
-              <div className="winner-spotlight__header">
-                <span className="winner-spotlight__kicker">Final standings</span>
-                <h3>{result?.tournament_name || tournament?.name || "Tournament"}</h3>
+          <div className="detail-hero-grid">
+            <div className="detail-hero-info">
+              <h1 className="detail-title">{tournament.name}</h1>
+              <p className="detail-desc">
+                {tournament.description || "Match-ready competition with verified stats."}
+              </p>
+              <div className="detail-tags">
+                <span className="chip">{tierLabel}</span>
+                <span className="chip">{tournament.region || "Global"}</span>
+                <span className="chip">{tournament.mode || "Squad"}</span>
+                <span className="chip">{tournament.perspective || "TPP"}</span>
               </div>
-              <div className="winner-spotlight__rows">
-                {winnerList.map((winner) => (
-                  <div
-                    key={`${winner.place}-${winner.name}`}
-                    className={`winner-row winner-row--${winner.place}`}
-                  >
-                    <div className="winner-row__place">
-                      <span className="place-number">{winner.place}</span>
-                      <span className="place-label">Place</span>
-                    </div>
-                    <div className="winner-row__title">
-                      <strong>{winner.name}</strong>
-                    </div>
-                    <div className="winner-row__stats">
-                      <div>
-                        <span>Points</span>
-                        <strong>{winner.points}</strong>
-                      </div>
-                      <div>
-                        <span>Kills</span>
-                        <strong>{winner.kills}</strong>
-                      </div>
-                    </div>
-                    <div className="winner-row__accent" aria-hidden="true" />
+              <div className="detail-meta">
+                <MetaCard label="Dates" value={`${tournament.start_date || "-"} • ${tournament.end_date || "-"}`} />
+                <MetaCard label="Prize Pool" value={`$${tournament.prize_pool}`} />
+                <MetaCard label="Registration" value={tournament.registration_status} />
+                <MetaCard label="Server" value={tournament.region || "-"} />
+              </div>
+            </div>
+            <div className="detail-hero-stats">
+              <StatTile label="Teams" value={teamCount || "-"} />
+              <StatTile label="Matches" value={matchCount || "-"} />
+              <StatTile label="Players" value={playerCount || "-"} />
+              <StatTile label="Status" value={tournament.status} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section tab-section sticky-tabs">
+        <div className="tab-group centered">
+          {[
+            { id: "overview", label: "Overview" },
+            { id: "leaderboards", label: "Leaderboards" },
+            { id: "matches", label: "Matches" },
+            { id: "teams", label: "Teams" },
+            { id: "players", label: "Players" }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              className={activeTab === tab.id ? "active" : ""}
+              onClick={() => handleTabChange(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {activeTab === "overview" && (
+        <>
+          <section className="detail-grid">
+            <div className="detail-card">
+              <h3>Tournament Details</h3>
+              <ul>
+                <li>End Date: {tournament.end_date || "-"}</li>
+                <li>Registration Charge: ${tournament.registration_charge}</li>
+                <li>Max Slots: {tournament.max_slots || "-"}</li>
+                <li>API Provider: {tournament.api_provider}</li>
+              </ul>
+            </div>
+            <div className="detail-card">
+              <h3>Rules</h3>
+              {tournament.rules ? (
+                <ul className="rules-list">
+                  {extractRules(tournament.rules).map((rule, index) => {
+                    const parsed = parseRuleLink(rule);
+                    return (
+                      <li key={`${rule}-${index}`}>
+                        {parsed.url ? (
+                          <a href={parsed.url} target="_blank" rel="noreferrer">
+                            {parsed.text}
+                          </a>
+                        ) : (
+                          parsed.text
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p>Rules will be announced soon.</p>
+              )}
+              <p className="muted">Contact: {tournament.contact_discord}</p>
+            </div>
+          </section>
+
+          {tournament.status === "completed" && (
+            <section className="section">
+              <div className="section-header">
+                <h2>Winners Spotlight</h2>
+              </div>
+              {!result && !winnerList && (
+                <div className="empty-state">Winners not published yet.</div>
+              )}
+              {winnerList && (
+                <div className="winner-spotlight">
+                  <div className="winner-spotlight__header">
+                    <span className="winner-spotlight__kicker">Final standings</span>
+                    <h3>{result?.tournament_name || tournament?.name || "Tournament"}</h3>
                   </div>
-                ))}
-              </div>
-              {result?.most_kills && (
-                <div className="kills-highlight">
-                  <span className="badge">🔥 Most Kills</span>
-                  <h4>{result.most_kills.winner}</h4>
-                  <p>
-                    {result.most_kills.kills} kills over{" "}
-                    {result.most_kills.matches_played} matches
-                  </p>
+                  <div className="winner-spotlight__rows">
+                    {winnerList.map((winner) => (
+                      <div
+                        key={`${winner.place}-${winner.name}`}
+                        className={`winner-row winner-row--${winner.place}`}
+                      >
+                        <div className="winner-row__place">
+                          <span className="place-number">{winner.place}</span>
+                          <span className="place-label">Place</span>
+                        </div>
+                        <div className="winner-row__title">
+                          <strong>{winner.name}</strong>
+                        </div>
+                        <div className="winner-row__stats">
+                          <div>
+                            <span>Points</span>
+                            <strong>{winner.points}</strong>
+                          </div>
+                          <div>
+                            <span>Kills</span>
+                            <strong>{winner.kills}</strong>
+                          </div>
+                        </div>
+                        <div className="winner-row__accent" aria-hidden="true" />
+                      </div>
+                    ))}
+                  </div>
+                  {result?.most_kills && (
+                    <div className="kills-highlight">
+                      <span className="badge">🔥 Most Kills</span>
+                      <h4>{result.most_kills.winner}</h4>
+                      <p>
+                        {result.most_kills.kills} kills over{" "}
+                        {result.most_kills.matches_played} matches
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </section>
           )}
-        </section>
+        </>
       )}
-
-      <section className="section tab-section">
-        <div className="section-header">
-          <div className="tab-group centered">
-            {[
-              { id: "overview", label: "Overview" },
-              { id: "players", label: "Players" }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                className={activeTab === tab.id ? "active" : ""}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {activeTab === "players" && (
         <section className="section">
@@ -568,46 +664,72 @@ const TournamentDetailPage = () => {
         </section>
       )}
 
-      {activeTab === "overview" && (
-        <>
-          <section className="section">
-            <div className="section-header">
-              <h2>Results</h2>
-            </div>
-            <div className="stats-card">
-              <div className="stats-card-header">
-                <div>
+      {activeTab === "teams" && (
+        <section className="section">
+          <div className="section-header">
+            <h2>Teams in Tournament</h2>
+          </div>
+          {teamParticipants.length ? (
+            <div className="team-grid">
+              {teamParticipants.map((participant, index) => (
+                <div key={participant.participant_id} className="team-card">
+                  <div className="team-card__header">
+                    <span className="badge">Team</span>
+                    <span className="muted">
+                      Slot {participant.slot_number || index + 1}
+                    </span>
+                  </div>
                   <h3>
-                    {resultTab === "leaderboard"
-                      ? "Leaderboard"
-                      : resultTab === "matches"
-                      ? "Matches"
-                      : resultTab === "playerStats"
-                      ? "Player Stats"
-                      : "Team Stats"}
+                    {teamMap.get(participant.linked_team_id) ||
+                      participant.linked_team_id ||
+                      `Team ${index + 1}`}
                   </h3>
-                  <span className="muted">
-                    {liveData ? "PUBG API" : "Manual"} data
-                  </span>
+                  <div className="team-card__meta">
+                    <span>Status: {participant.status || "-"}</span>
+                    <span>Payment: {participant.payment_status || "-"}</span>
+                  </div>
                 </div>
-                <div className="tab-group">
-                  {[
-                    { id: "leaderboard", label: "Leaderboard" },
-                    { id: "matches", label: "Matches" },
-                    { id: "playerStats", label: "Player Stats" },
-                    { id: "teamStats", label: "Team Stats" }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      className={resultTab === tab.id ? "active" : ""}
-                      onClick={() => setResultTab(tab.id)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">Team list hidden or empty.</div>
+          )}
+        </section>
+      )}
+
+      <section className="section">
+        <div className="section-header">
+          <h2>{activeTab === "overview" ? "Results" : resultTitle}</h2>
+        </div>
+        <div
+          className="stats-card"
+          data-mode={activeTab === "overview" ? "overview" : "single"}
+        >
+          <div className="stats-card-header">
+            <div>
+              <h3>{resultTitle}</h3>
+              <span className="muted">{liveData ? "PUBG API" : "Manual"} data</span>
+            </div>
+            {activeTab === "overview" && (
+              <div className="tab-group">
+                {[
+                  { id: "leaderboard", label: "Leaderboard" },
+                  { id: "matches", label: "Matches" },
+                  { id: "playerStats", label: "Player Stats" },
+                  { id: "teamStats", label: "Team Stats" }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    className={resultTab === tab.id ? "active" : ""}
+                    onClick={() => setResultTab(tab.id)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-              <div className="table-wrapper leaderboard-table">
+            )}
+          </div>
+          <div className="table-wrapper leaderboard-table">
                 {resultTab === "leaderboard" && (
                   <table className="stats-table leaderboard">
                     <thead>
@@ -907,18 +1029,22 @@ const TournamentDetailPage = () => {
                     </tbody>
                   </table>
                 )}
-              </div>
-            </div>
-          </section>
-
-        </>
-      )}
+          </div>
+        </div>
+      </section>
     </main>
   );
 };
 
 const MetaCard = ({ label, value }) => (
   <div className="meta-card">
+    <span>{label}</span>
+    <strong>{value}</strong>
+  </div>
+);
+
+const StatTile = ({ label, value }) => (
+  <div className="stat-tile">
     <span>{label}</span>
     <strong>{value}</strong>
   </div>
