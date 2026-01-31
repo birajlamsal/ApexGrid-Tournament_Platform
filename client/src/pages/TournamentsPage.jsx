@@ -7,11 +7,14 @@ const TournamentsPage = () => {
   useReveal();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
     status: "",
     registration: "",
     mode: "",
+    region: "",
+    tier: "",
     sort: "start_date"
   });
 
@@ -19,7 +22,13 @@ const TournamentsPage = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await fetchTournaments(filters);
+        const data = await fetchTournaments({
+          search: filters.search,
+          status: filters.status,
+          registration: filters.registration,
+          mode: filters.mode,
+          sort: filters.sort
+        });
         setTournaments(data);
       } catch (error) {
         console.error(error);
@@ -28,66 +37,177 @@ const TournamentsPage = () => {
       }
     };
     load();
-  }, [filters]);
+  }, [filters.search, filters.status, filters.registration, filters.mode, filters.sort]);
 
   const visible = useMemo(() => {
-    if (!filters.search) {
-      return tournaments;
-    }
-    const term = filters.search.toLowerCase();
-    return tournaments.filter((item) => item.name.toLowerCase().includes(term));
-  }, [tournaments, filters.search]);
+    return tournaments.filter((item) => {
+      if (filters.search) {
+        const term = filters.search.toLowerCase();
+        if (!item.name.toLowerCase().includes(term)) {
+          return false;
+        }
+      }
+      if (filters.status && item.status !== filters.status) {
+        return false;
+      }
+      if (filters.registration && item.registration_status !== filters.registration) {
+        return false;
+      }
+      if (filters.mode && item.mode !== filters.mode) {
+        return false;
+      }
+      if (filters.region && item.region !== filters.region) {
+        return false;
+      }
+      if (filters.tier) {
+        const prize = Number(item.prize_pool || 0);
+        const tier =
+          prize >= 1000 ? "S" : prize >= 500 ? "A" : prize >= 200 ? "B" : "C";
+        if (tier !== filters.tier) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [
+    tournaments,
+    filters.search,
+    filters.status,
+    filters.registration,
+    filters.mode,
+    filters.region,
+    filters.tier
+  ]);
+
+  const regions = useMemo(() => {
+    return Array.from(
+      new Set(tournaments.map((item) => item.region).filter(Boolean))
+    );
+  }, [tournaments]);
 
   return (
     <main className="tournaments-page">
       <section className="page-hero reveal">
         <h1>All Tournaments</h1>
-        <p>Filter by status, mode, and registration to find your next battle.</p>
+        <p>Filter by status, region, and tier to find the next drop.</p>
       </section>
 
       <section className="filters reveal">
-        <input
-          type="search"
-          placeholder="Search by tournament name"
-          value={filters.search}
-          onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-        />
-        <select
-          value={filters.status}
-          onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
-        >
-          <option value="">Status: All</option>
-          <option value="upcoming">Upcoming</option>
-          <option value="ongoing">Ongoing</option>
-          <option value="completed">Completed</option>
-        </select>
-        <select
-          value={filters.registration}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, registration: e.target.value }))
-          }
-        >
-          <option value="">Registration: All</option>
-          <option value="open">Open</option>
-          <option value="closed">Closed</option>
-        </select>
-        <select
-          value={filters.mode}
-          onChange={(e) => setFilters((prev) => ({ ...prev, mode: e.target.value }))}
-        >
-          <option value="">Mode: All</option>
-          <option value="solo">Solo</option>
-          <option value="duo">Duo</option>
-          <option value="squad">Squad</option>
-        </select>
-        <select
-          value={filters.sort}
-          onChange={(e) => setFilters((prev) => ({ ...prev, sort: e.target.value }))}
-        >
-          <option value="start_date">Sort: Start Date</option>
-          <option value="prize_pool">Sort: Prize Pool</option>
-          <option value="registration_charge">Sort: Registration Charge</option>
-        </select>
+        <div className="filters-header">
+          <div>
+            <h2>Filter tournaments</h2>
+            <p className="muted">Search, sort, and prioritize your next event.</p>
+          </div>
+          <button
+            type="button"
+            className="filter-toggle"
+            onClick={() => setShowFilters((prev) => !prev)}
+            aria-expanded={showFilters}
+          >
+            Filters
+          </button>
+        </div>
+        <div className={`filters-grid ${showFilters ? "open" : ""}`}>
+          <label className="filter-field">
+            <span>Search</span>
+            <input
+              type="search"
+              placeholder="Search by tournament name"
+              value={filters.search}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, search: e.target.value }))
+              }
+            />
+          </label>
+          <label className="filter-field">
+            <span>Region</span>
+            <select
+              value={filters.region}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, region: e.target.value }))
+              }
+            >
+              <option value="">All regions</option>
+              {regions.map((region) => (
+                <option key={region} value={region}>
+                  {region}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="filter-field">
+            <span>Tier</span>
+            <select
+              value={filters.tier}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, tier: e.target.value }))
+              }
+            >
+              <option value="">All tiers</option>
+              <option value="S">S Tier</option>
+              <option value="A">A Tier</option>
+              <option value="B">B Tier</option>
+              <option value="C">C Tier</option>
+            </select>
+          </label>
+          <label className="filter-field">
+            <span>Registration</span>
+            <select
+              value={filters.registration}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, registration: e.target.value }))
+              }
+            >
+              <option value="">All</option>
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+            </select>
+          </label>
+          <label className="filter-field">
+            <span>Mode</span>
+            <select
+              value={filters.mode}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, mode: e.target.value }))
+              }
+            >
+              <option value="">All modes</option>
+              <option value="solo">Solo</option>
+              <option value="duo">Duo</option>
+              <option value="squad">Squad</option>
+            </select>
+          </label>
+          <label className="filter-field">
+            <span>Sort</span>
+            <select
+              value={filters.sort}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, sort: e.target.value }))
+              }
+            >
+              <option value="start_date">Start date</option>
+              <option value="prize_pool">Prize pool</option>
+              <option value="registration_charge">Popularity</option>
+            </select>
+          </label>
+          <div className="filter-chips">
+            {[
+              { id: "", label: "All" },
+              { id: "ongoing", label: "Ongoing" },
+              { id: "upcoming", label: "Upcoming" },
+              { id: "completed", label: "Finished" }
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                className={`chip ${filters.status === chip.id ? "active" : ""}`}
+                onClick={() => setFilters((prev) => ({ ...prev, status: chip.id }))}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="section reveal">
@@ -98,17 +218,28 @@ const TournamentsPage = () => {
           )}
           {!loading &&
             visible.map((tournament) => (
-              <Link
-                to={`/tournaments/${tournament.tournament_id}`}
-                key={tournament.tournament_id}
-                className="tournament-card full"
-              >
+              <div key={tournament.tournament_id} className="tournament-card full">
                 <div className="card-left">
                   <span className={`status-badge ${tournament.status}`}>
                     {tournament.status}
                   </span>
                   <h3>{tournament.name}</h3>
-                  <p>{tournament.description}</p>
+                  <p>{tournament.description || "Details coming soon."}</p>
+                  <div className="card-tags">
+                    <span className="chip">{tournament.region || "Global"}</span>
+                    <span className="chip">
+                      {(() => {
+                        const prize = Number(tournament.prize_pool || 0);
+                        return prize >= 1000
+                          ? "S Tier"
+                          : prize >= 500
+                          ? "A Tier"
+                          : prize >= 200
+                          ? "B Tier"
+                          : "C Tier";
+                      })()}
+                    </span>
+                  </div>
                 </div>
                 <div className="card-meta">
                   <div>
@@ -130,7 +261,21 @@ const TournamentsPage = () => {
                     </strong>
                   </div>
                 </div>
-              </Link>
+                <div className="card-actions">
+                  <Link
+                    to={`/tournaments/${tournament.tournament_id}`}
+                    className="ghost-button"
+                  >
+                    Details
+                  </Link>
+                  <Link
+                    to={`/tournaments/${tournament.tournament_id}?tab=leaderboards`}
+                    className="primary-button"
+                  >
+                    Leaderboards
+                  </Link>
+                </div>
+              </div>
             ))}
         </div>
       </section>

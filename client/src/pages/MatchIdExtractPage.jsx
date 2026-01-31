@@ -57,78 +57,80 @@ const MatchIdExtractPage = () => {
 
   return (
     <main className="matchid-page">
-      <section className="page-hero">
+      <section className="page-hero tool-hero">
         <h1>Match ID Extractor</h1>
-        <p>Look up a player and copy the match IDs you need.</p>
+        <p>Look up a player and copy the match IDs you need in seconds.</p>
       </section>
 
       <section className="section">
-        <form className="matchid-form" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={playerName}
-            onChange={(event) => setPlayerName(event.target.value)}
-            placeholder="Enter PUBG in-game name"
-          />
-          <button type="submit" className="cta-button">
-            Fetch Matches
-          </button>
-        </form>
-        <div className="matchid-filters">
-          <button
-            type="button"
-            className={`matchid-filter ${filter === "all" ? "active" : ""}`}
-            onClick={() => setFilter("all")}
-          >
-            All
-          </button>
-          <button
-            type="button"
-            className={`matchid-filter ${filter === "custom" ? "active" : ""}`}
-            onClick={() => setFilter("custom")}
-          >
-            Custom
-          </button>
-          <button
-            type="button"
-            className={`matchid-filter ${filter === "normal" ? "active" : ""}`}
-            onClick={() => setFilter("normal")}
-          >
-            Normal
-          </button>
-        </div>
-        {error && <div className="empty-state">{error}</div>}
-        {loading && <div className="empty-state">Loading matches...</div>}
-        {!loading && filteredMatches.length > 0 && (
-          <div className="matchid-list">
-            {filteredMatches.map((match) => {
-              const matchId = match.match_id || match;
-              const isCustom = match?.is_custom_match === true;
-              const rowClass = isCustom ? "matchid-custom" : "matchid-normal";
-              const label = isCustom ? "Custom" : "Normal";
-              return (
-                <div key={matchId} className={`matchid-row ${rowClass}`}>
-                <div className="matchid-main">
-                  <strong>{matchId}</strong>
-                  {match.game_mode && (
-                    <span className="muted">
-                      {match.game_mode} • {match.map_name || "Unknown map"}
-                    </span>
-                  )}
-                </div>
-                <span className={`matchid-status ${rowClass}`}>{label}</span>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => handleCopy(matchId)}
-                >
-                  Copy
-                </button>
-              </div>
-              );
-            })}
+        <div className="tool-panel">
+          <form className="matchid-form" onSubmit={handleSubmit}>
+            <input
+              type="text"
+              value={playerName}
+              onChange={(event) => setPlayerName(event.target.value)}
+              placeholder="Enter PUBG in-game name"
+            />
+            <button type="submit" className="primary-button">
+              Fetch Matches
+            </button>
+          </form>
+          <div className="matchid-filters">
+            <button
+              type="button"
+              className={`matchid-filter ${filter === "all" ? "active" : ""}`}
+              onClick={() => setFilter("all")}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              className={`matchid-filter ${filter === "custom" ? "active" : ""}`}
+              onClick={() => setFilter("custom")}
+            >
+              Custom
+            </button>
+            <button
+              type="button"
+              className={`matchid-filter ${filter === "normal" ? "active" : ""}`}
+              onClick={() => setFilter("normal")}
+            >
+              Normal
+            </button>
           </div>
-        )}
+          {error && <div className="empty-state">{error}</div>}
+          {loading && <div className="empty-state">Loading matches...</div>}
+          {!loading && filteredMatches.length > 0 && (
+            <div className="matchid-list">
+              {filteredMatches.map((match) => {
+                const matchId = match.match_id || match;
+                const isCustom = match?.is_custom_match === true;
+                const rowClass = isCustom ? "matchid-custom" : "matchid-normal";
+                const label = isCustom ? "Custom" : "Normal";
+                return (
+                  <div key={matchId} className={`matchid-row ${rowClass}`}>
+                    <div className="matchid-main">
+                      <strong>{matchId}</strong>
+                      {match.game_mode && (
+                        <span className="muted">
+                          {match.game_mode} • {match.map_name || "Unknown map"}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`matchid-status ${rowClass}`}>{label}</span>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => handleCopy(matchId)}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </section>
     </main>
   );

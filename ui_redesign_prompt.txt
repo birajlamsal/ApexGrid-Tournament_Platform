@@ -1,0 +1,123 @@
+You are building a PUBG PC tournament management website UI inspired by a modern esports stats site (reference: twire.gg PUBG section). Do NOT copy any text, logos, images, or exact styling tokens; recreate the layout patterns and UX with original assets and your own design system.
+
+TECH STACK
+- Next.js 14+ (App Router) + TypeScript
+- TailwindCSS
+- shadcn/ui components
+- lucide-react icons
+- framer-motion animations (subtle)
+- recharts for charts (radar chart is required)
+- Data source: local mock JSON/TS objects (no backend). Put all mock data in /src/data
+
+GLOBAL UI / DESIGN LANGUAGE
+- Dark esports dashboard theme: near-black/charcoal background, layered panels, soft borders, slight gradient headers
+- Single strong accent color (yellow/gold) + optional secondary (teal/blue) for highlights
+- Cards: rounded-2xl, shadow-sm, thin border, hover lift + glow ring
+- Typography: bold condensed headings, clean body text, very readable tables
+- Layout baseline: 12-col grid on desktop, stacked on mobile
+- Provide skeleton loaders and empty states for every data list/table
+
+ROUTING (PAGES)
+1) /pubg (Home / Hub)
+   - Top sticky navbar: logo placeholder, primary nav (Tournaments, Ranking, News), search box, language dropdown, user menu button
+   - Hero header with background image placeholder (use CSS gradient if no image), title “PUBG Hub”, quick stats chips
+   - Sections (cards + horizontal carousels):
+     a) Ongoing / Upcoming tournaments (scrollable row)
+     b) Featured tournament highlight (big card with CTA)
+     c) Latest news (3–6 cards)
+   - Each section has “View all” link
+
+2) /pubg/tournaments/ongoing (Tournaments list)
+   - Header with filters bar:
+     - Search input
+     - Region dropdown
+     - Tier dropdown
+     - Status chips (Ongoing / Upcoming / Finished)
+     - Sort dropdown (Start date, Prize pool, Popularity)
+   - Tournament list as responsive cards:
+     - Banner placeholder, title, date range, region tag, tier badge, prize pool, small meta row
+     - CTA buttons: “Details” and “Leaderboards”
+   - Pagination or infinite scroll (choose one), include skeleton loading
+
+3) /pubg/tournaments/[tournamentId]/[slug] (Tournament detail)
+   - Top “tournament header” section:
+     - Left: tournament name, tier, region, date range
+     - Right: stat tiles (teams, matches, prize pool, status)
+   - Tab navigation (sticky when scrolling):
+     - Overview
+     - Leaderboards
+     - Matches
+     - Teams
+     - Players
+   - Tabs must sync with URL query (?tab=leaderboards etc.)
+
+4) /pubg/tournaments/[tournamentId]/[slug]/leaderboards
+   - A sticky FILTER BAR similar to esports stat sites:
+     - Round dropdown
+     - Group/Week dropdown
+     - Day dropdown (optional)
+     - Toggle: “Show qualified only”
+     - Export button (dummy)
+   - Main leaderboard table:
+     Columns: Rank, Team (logo placeholder + name), Matches, WWCD, Kills, Placement Pts, Total Pts, Trend (▲▼)
+     - Sticky header
+     - Sortable columns (Total, Kills, Placement)
+     - Row hover highlights + click to expand
+   - Expanded row shows:
+     - Mini match-by-match breakdown table (Match #, Map, Place, Kills, Pts)
+     - A small “points split” bar visualization (placement vs kills)
+
+5) /pubg/ranking/power-ranking (Power ranking)
+   - Top controls:
+     - Scope dropdown (Global / Region)
+     - Time window dropdown (Last 30/90/All-time)
+     - Role/metric dropdown
+     - Search player/team
+   - Layout:
+     - “Top ranked” player cards grid (3–6 cards) each shows:
+       - Player image placeholder
+       - Overall score (big)
+       - A radar chart (recharts RadarChart) with 5 axes (e.g., Attack, Utility, Survivor, Teammate, Finisher)
+     - Below: full ranking table with same metrics columns + overall score
+   - Keep charts performant; use dynamic import for recharts if needed
+
+6) /pubg/news (News section)
+   - Page header + category chips (All, Esports, Patch, Fantasy, Announcements)
+   - Grid of article cards:
+     - Thumbnail placeholder, title, short excerpt, date, tags
+     - Hover: image zoom + card lift
+   - /pubg/news/[postId]/[slug] detail page:
+     - Article header, reading time, share buttons (dummy)
+     - Content uses mock rich text blocks (headings, paragraphs, callout box)
+
+COMPONENTS TO BUILD (REUSABLE)
+- AppShell (navbar + layout)
+- PageHeader (title + breadcrumbs + right-side actions)
+- FilterBar (sticky, responsive: becomes drawer on mobile)
+- StatTile, Badge, Chip, SkeletonCard
+- DataTable (sorting, sticky header, row expand)
+- TournamentCard, NewsCard, PlayerRankCard
+- RadarStatCard (player portrait + radar + score)
+- EmptyState (icon + message + CTA)
+
+INTERACTIONS / UX
+- Preserve filters in the URL query string (round, group, sort, search)
+- Mobile behavior:
+  - Tables become stacked “rows as cards”
+  - Filters open in a bottom sheet/drawer
+- Loading:
+  - Skeletons shown for 1s simulated delay (setTimeout) to demonstrate states
+- Accessibility:
+  - Keyboard navigable table rows and menus
+  - Proper aria labels for dropdowns, tabs, and drawers
+
+PROJECT STRUCTURE
+- /src/app/pubg/... routes above
+- /src/components/ui (shadcn)
+- /src/components (custom components)
+- /src/data (mock tournaments, teams, players, matches, news)
+- /src/lib (helpers: query params, sorting, formatters)
+- Provide a clean README with setup + page map + where to edit mock data
+
+DELIVERABLE
+Generate the full codebase with all pages and components wired using mock data, matching the described esports dashboard look and behaviors.

@@ -24,33 +24,41 @@ const AnnouncementsPage = () => {
   return (
     <main className="announcements-page">
       <section className="page-hero reveal">
-        <h1>Announcements</h1>
-        <p>Official updates, notices, and tournament communications.</p>
+        <h1>News & Updates</h1>
+        <p>Esports coverage, platform notes, and tournament updates.</p>
+        <div className="chip-row">
+          {["All", "Esports", "Patch", "Fantasy", "Announcements"].map((label) => (
+            <span key={label} className="chip">
+              {label}
+            </span>
+          ))}
+        </div>
       </section>
 
       <section className="section reveal">
-        <div className="stacked-cards">
+        <div className="card-grid news-grid">
           {loading && <div className="skeleton-table" />}
           {!loading && announcements.length === 0 && (
             <div className="empty-state">No announcements yet.</div>
           )}
           {!loading &&
             announcements.map((note) => (
-              <div key={note.announcement_id} className="announcement-card">
-                <div>
-                  <h3>{note.title}</h3>
-                  <p>{note.body}</p>
-                </div>
-                <div className="announcement-meta">
+              <div key={note.announcement_id} className="announcement-card news-card">
+                <div className="news-card__header">
                   <span className="badge">{note.type}</span>
+                  <span className="muted">
+                    {new Date(note.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <h3>{note.title}</h3>
+                <p>{note.body}</p>
+                <div className="announcement-meta">
                   <span
                     className={`importance-line importance-${note.importance || "medium"}`}
                     title={`Importance: ${note.importance || "medium"}`}
                     aria-label={`Importance: ${note.importance || "medium"}`}
                   />
-                  <span className="muted">
-                    {new Date(note.created_at).toLocaleDateString()}
-                  </span>
+                  <span className="muted">Read more</span>
                 </div>
               </div>
             ))}

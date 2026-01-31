@@ -102,21 +102,41 @@ const HomePage = () => {
     ).length;
     return [
       { label: "Ongoing", value: ongoing },
-      { label: "On the Way", value: upcoming },
+      { label: "Upcoming", value: upcoming },
       { label: "Completed", value: completed },
-      { label: "Registration Open", value: open }
+      { label: "Open Slots", value: open }
     ];
   }, [tournaments]);
 
+  const ongoingTournaments = useMemo(
+    () => tournaments.filter((item) => item.status === "ongoing"),
+    [tournaments]
+  );
+
+  const upcomingTournaments = useMemo(
+    () => tournaments.filter((item) => item.status === "upcoming"),
+    [tournaments]
+  );
+
+  const highlightTournament = useMemo(() => {
+    return featured[0] || upcomingTournaments[0] || tournaments[0] || null;
+  }, [featured, upcomingTournaments, tournaments]);
+
+  const featuredRow = useMemo(() => {
+    return [...ongoingTournaments, ...upcomingTournaments].slice(0, 8);
+  }, [ongoingTournaments, upcomingTournaments]);
+
+  const latestNews = useMemo(() => announcements.slice(0, 6), [announcements]);
+
   return (
     <main className="home-page">
-      <section className="hero" ref={heroRef}>
+      <section className="hero hub-hero" ref={heroRef}>
         <div className="hero-bg" />
         <div className="hero-content">
-          <span className="hero-tag">PUBG PC Tournament Platform</span>
-          <h1 className="hero-title">Dominate the Drop. Track Every Win.</h1>
+          <span className="hero-tag">PUBG PC Hub</span>
+          <h1 className="hero-title">PUBG Hub</h1>
           <p className="hero-subtitle">
-            Community-first PUBG tournaments, verified stats, and animated leaderboards
+            Live tournament tracking, verified rosters, and match-ready insights
             built for competitive squads.
           </p>
           <div className="hero-actions">
@@ -148,17 +168,21 @@ const HomePage = () => {
 
       <section className="section reveal">
         <div className="section-header">
-          <h2>Featured Tournaments</h2>
+          <h2>Ongoing & Upcoming Tournaments</h2>
           <Link to="/tournaments">View all</Link>
         </div>
-        {loading && <div className="card-grid"><SkeletonCards count={3} /></div>}
-        {!loading && featured.length === 0 && (
-          <EmptyState message="No featured tournaments yet." />
+        {loading && (
+          <div className="card-grid">
+            <SkeletonCards count={4} />
+          </div>
         )}
-        {!loading && featured.length > 0 && (
-          <div className="embla" ref={emblaRef}>
+        {!loading && featuredRow.length === 0 && (
+          <EmptyState message="No tournaments available right now." />
+        )}
+        {!loading && featuredRow.length > 0 && (
+          <div className="embla scroll-row" ref={emblaRef}>
             <div className="embla__container">
-              {featured.map((tournament) => (
+              {featuredRow.map((tournament) => (
                 <div className="embla__slide" key={tournament.tournament_id}>
                   <Link
                     to={`/tournaments/${tournament.tournament_id}`}
@@ -170,7 +194,7 @@ const HomePage = () => {
                         {tournament.status}
                       </span>
                       <h3>{tournament.name}</h3>
-                      <p>{tournament.description}</p>
+                      <p>{tournament.description || "Details coming soon."}</p>
                     </div>
                     <div className="card-bottom">
                       <div>
@@ -178,8 +202,8 @@ const HomePage = () => {
                         <strong>${tournament.prize_pool}</strong>
                       </div>
                       <div>
-                        <span>Registration</span>
-                        <strong>${tournament.registration_charge}</strong>
+                        <span>Region</span>
+                        <strong>{tournament.region || "-"}</strong>
                       </div>
                     </div>
                   </Link>
@@ -190,8 +214,47 @@ const HomePage = () => {
         )}
       </section>
 
-      <section className="section reveal split-section">
-        <div>
+      <section className="section reveal highlight-grid">
+        <div className="highlight-card">
+          <div className="highlight-glow" />
+          <div className="highlight-content">
+            <span className="chip">Featured Spotlight</span>
+            <h2>{highlightTournament?.name || "Featured Tournament"}</h2>
+            <p>
+              {highlightTournament?.description ||
+                "Featured tournaments highlight the best squads, tightest schedules, and highest stakes."}
+            </p>
+            <div className="highlight-meta">
+              <div>
+                <span>Prize Pool</span>
+                <strong>${highlightTournament?.prize_pool ?? "-"}</strong>
+              </div>
+              <div>
+                <span>Dates</span>
+                <strong>
+                  {highlightTournament?.start_date || "-"} •{" "}
+                  {highlightTournament?.end_date || "-"}
+                </strong>
+              </div>
+              <div>
+                <span>Status</span>
+                <strong>{highlightTournament?.status || "-"}</strong>
+              </div>
+            </div>
+            <Link
+              to={
+                highlightTournament
+                  ? `/tournaments/${highlightTournament.tournament_id}`
+                  : "/tournaments"
+              }
+              className="primary-button"
+            >
+              View details
+            </Link>
+          </div>
+        </div>
+
+        <div className="highlight-aside">
           <div className="section-header">
             <h2>Upcoming Match Schedule</h2>
           </div>
@@ -215,24 +278,34 @@ const HomePage = () => {
               ))}
           </div>
         </div>
-        <div>
-          <div className="section-header">
-            <h2>Announcements</h2>
-          </div>
-          <div className="stacked-cards">
-            {loading && <SkeletonCards count={2} />}
-            {!loading && announcements.length === 0 && (
-              <EmptyState message="No announcements yet." />
-            )}
-            {!loading &&
-              announcements.map((note) => (
-                <div key={note.announcement_id} className="announcement-card">
-                  <h4>{note.title}</h4>
-                  <p>{note.body}</p>
-                  <span className="muted">{new Date(note.created_at).toLocaleDateString()}</span>
+      </section>
+
+      <section className="section reveal">
+        <div className="section-header">
+          <h2>Latest News</h2>
+          <Link to="/announcements">View all</Link>
+        </div>
+        <div className="card-grid news-grid">
+          {loading && <SkeletonCards count={3} />}
+          {!loading && latestNews.length === 0 && (
+            <EmptyState message="No announcements yet." />
+          )}
+          {!loading &&
+            latestNews.map((note) => (
+              <div className="announcement-card news-card" key={note.announcement_id}>
+                <div className="news-card__header">
+                  <span className="badge">{note.type}</span>
+                  <span className="muted">
+                    {new Date(note.created_at).toLocaleDateString()}
+                  </span>
                 </div>
-              ))}
-          </div>
+                <h3>{note.title}</h3>
+                <p>{note.body}</p>
+                <Link to="/announcements" className="text-button">
+                  Read update
+                </Link>
+              </div>
+            ))}
         </div>
       </section>
     </main>
@@ -246,8 +319,6 @@ const SkeletonCards = ({ count = 3 }) => (
     ))}
   </>
 );
-
-const SkeletonTable = () => <div className="skeleton-table" />;
 
 const EmptyState = ({ message }) => (
   <div className="empty-state">{message}</div>
