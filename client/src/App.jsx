@@ -1,6 +1,4 @@
 import { Routes, Route } from "react-router-dom";
-import Header from "./components/Header";
-import LeftRail from "./components/LeftRail";
 import Footer from "./components/Footer";
 import ErrorBoundary from "./components/ErrorBoundary";
 import HomePage from "./pages/HomePage";
@@ -11,17 +9,17 @@ import AnnouncementsPage from "./pages/AnnouncementsPage";
 import ContactPage from "./pages/ContactPage";
 import MatchIdExtractPage from "./pages/MatchIdExtractPage";
 import MatchDetailDownloadPage from "./pages/MatchDetailDownloadPage";
+import LandPage from "./pages/LandPage";
 
 const App = () => {
   return (
     <div className="app">
-      <Header />
       <div className="app-shell">
-        <LeftRail />
         <div className="app-content">
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<HomePage />} />
+              <Route path="/land" element={<LandPage />} />
               <Route path="/tournaments" element={<TournamentsPage />} />
               <Route path="/tournaments/:id" element={<TournamentDetailPage />} />
               <Route path="/announcements" element={<AnnouncementsPage />} />
