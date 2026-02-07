@@ -236,38 +236,38 @@ const TournamentsPage = () => {
           {!loading &&
             visible.map((tournament) => (
               <div key={tournament.tournament_id} className="tournament-card full">
-                <div className="card-left">
+                <div className="card-body">
                   <span className={`status-badge ${tournament.status}`}>
                     {tournament.status}
                   </span>
                   <h3>{tournament.name}</h3>
                   <p>{tournament.description || "Details coming soon."}</p>
+                  <div className="card-meta">
+                    <div>
+                      <span>Prize Pool</span>
+                      <strong>${tournament.prize_pool}</strong>
+                    </div>
+                    <div>
+                      <span>Charge</span>
+                      <strong>${tournament.registration_charge}</strong>
+                    </div>
+                    <div>
+                      <span>Mode</span>
+                      <strong>{tournament.mode}</strong>
+                    </div>
+                    <div>
+                      <span>Dates</span>
+                      <strong>
+                        {tournament.start_date} - {tournament.end_date}
+                      </strong>
+                    </div>
+                  </div>
                   <div className="card-tags">
                     <span className="chip">{tournament.region || "Global"}</span>
                     <span className="chip">{getTierLabel(tournament)}</span>
                   </div>
                 </div>
-                <div className="card-meta">
-                  <div>
-                    <span>Prize Pool</span>
-                    <strong>${tournament.prize_pool}</strong>
-                  </div>
-                  <div>
-                    <span>Charge</span>
-                    <strong>${tournament.registration_charge}</strong>
-                  </div>
-                  <div>
-                    <span>Mode</span>
-                    <strong>{tournament.mode}</strong>
-                  </div>
-                  <div>
-                    <span>Dates</span>
-                    <strong>
-                      {tournament.start_date} - {tournament.end_date}
-                    </strong>
-                  </div>
-                </div>
-                <div className="card-actions">
+                <div className="card-actions card-actions--footer">
                   <Link
                     to={`/tournaments/${tournament.tournament_id}`}
                     className="ghost-button"

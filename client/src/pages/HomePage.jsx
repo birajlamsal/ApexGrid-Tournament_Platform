@@ -1,47 +1,11 @@
-import { useEffect, useState } from "react";
-import { fetchAnnouncements } from "../api";
-
-const ongoing = [
-  {
-    name: "NAIZA CUP",
-    region: "EU",
-    platform: "PC",
-    mode: "SQUAD",
-    prize: "$5,000",
-    status: "ONGOING"
-  },
-  {
-    name: "SUPER LEAGUE SERIES",
-    region: "NA",
-    platform: "PC",
-    mode: "SQUAD",
-    prize: "$3,000",
-    status: "ONGOING"
-  },
-  {
-    name: "TACO TUESDAY LEAGUE",
-    region: "NA",
-    platform: "PC",
-    mode: "SQUAD",
-    prize: "$2,500",
-    status: "LIVE"
-  }
-];
-
-const past = Array.from({ length: 14 }).map((_, i) => ({
-  name: `CAXA CUP ${26 - i}`,
-  region: i % 2 ? "EU" : "NA",
-  platform: "PC",
-  mode: i % 3 === 0 ? "DUO" : "SQUAD",
-  prize: i % 4 === 0 ? "$1,500" : "$700",
-  status: "UPCOMING"
-}));
-
-const upcoming = past[0];
+import { useEffect, useMemo, useState } from "react";
+import { fetchAnnouncements, fetchTournaments } from "../api";
 
 const HomePage = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+  const [tournaments, setTournaments] = useState([]);
+  const [tournamentsLoading, setTournamentsLoading] = useState(true);
 
   useEffect(() => {
     const loadAnnouncements = async () => {
@@ -57,6 +21,37 @@ const HomePage = () => {
     loadAnnouncements();
   }, []);
 
+  useEffect(() => {
+    const loadTournaments = async () => {
+      try {
+        const data = await fetchTournaments();
+        setTournaments(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setTournamentsLoading(false);
+      }
+    };
+    loadTournaments();
+  }, []);
+
+  const { ongoing, upcoming, past, featured } = useMemo(() => {
+    const normalized = tournaments.slice();
+    const byStart = (a, b) =>
+      new Date(a.start_date || 0).getTime() - new Date(b.start_date || 0).getTime();
+    const ongoingList = normalized.filter((t) => t.status === "ongoing");
+    const upcomingList = normalized.filter((t) => t.status === "upcoming");
+    const pastList = normalized.filter((t) => t.status === "completed");
+    const featuredTournament = normalized.find((t) => t.featured) || upcomingList[0];
+
+    return {
+      ongoing: ongoingList.sort(byStart),
+      upcoming: upcomingList.sort(byStart)[0] || null,
+      past: pastList.sort(byStart),
+      featured: featuredTournament || null
+    };
+  }, [tournaments]);
+
   return (
     <div className="twire-page">
       <div className="twire-container">
@@ -67,13 +62,20 @@ const HomePage = () => {
                 <SectionTitle title="Ongoing tournaments" />
 
                 <div className="twire-panel">
-                  {ongoing.map((t, idx) => (
-                    <TournamentRow
-                      key={t.name}
-                      t={t}
-                      isLast={idx === ongoing.length - 1}
-                    />
-                  ))}
+                  {tournamentsLoading && (
+                    <div className="twire-muted">Loading tournaments...</div>
+                  )}
+                  {!tournamentsLoading && ongoing.length === 0 && (
+                    <div className="twire-muted">No ongoing tournaments.</div>
+                  )}
+                  {!tournamentsLoading &&
+                    ongoing.map((t, idx) => (
+                      <TournamentRow
+                        key={t.tournament_id || t.name}
+                        t={t}
+                        isLast={idx === ongoing.length - 1}
+                      />
+                    ))}
                 </div>
               </div>
 
@@ -81,11 +83,15 @@ const HomePage = () => {
                 <SectionTitle title="Upcoming tournament" />
               </div>
 
-              {upcoming ? (
+              {tournamentsLoading && (
+                <div className="twire-muted">Loading tournaments...</div>
+              )}
+              {!tournamentsLoading && upcoming ? (
                 <div className="twire-panel">
                   <TournamentRow t={upcoming} isLast />
                 </div>
-              ) : (
+              ) : null}
+              {!tournamentsLoading && !upcoming && (
                 <div className="twire-empty">No upcoming tournaments.</div>
               )}
 
@@ -95,13 +101,20 @@ const HomePage = () => {
               </div>
 
               <div className="twire-panel">
-                {past.slice(1).map((t, idx) => (
-                  <TournamentRow
-                    key={`${t.name}-${idx}`}
-                    t={t}
-                    isLast={idx === past.length - 2}
-                  />
-                ))}
+                {tournamentsLoading && (
+                  <div className="twire-muted">Loading tournaments...</div>
+                )}
+                {!tournamentsLoading && past.length === 0 && (
+                  <div className="twire-muted">No past tournaments.</div>
+                )}
+                {!tournamentsLoading &&
+                  past.map((t, idx) => (
+                    <TournamentRow
+                      key={`${t.tournament_id || t.name}-${idx}`}
+                      t={t}
+                      isLast={idx === past.length - 1}
+                    />
+                  ))}
               </div>
             </main>
 
@@ -127,22 +140,6 @@ const HomePage = () => {
 
             </aside>
 
-            <aside className="twire-aside twire-aside--tight">
-              <div className="twire-panel twire-panel--pad">
-                <div className="twire-panel-head">
-                  <h3>Play featured tournament</h3>
-                </div>
-                <div className="twire-featured">
-                  <div className="twire-featured__title">Global Clash Invitational</div>
-                  <div className="twire-featured__meta">
-                    <span>Prize: $10,000</span>
-                    <span>Starts: Feb 18</span>
-                  </div>
-                  <button className="twire-cta twire-cta--full">Join now</button>
-                </div>
-              </div>
-
-            </aside>
           </div>
         </div>
       </div>
@@ -161,16 +158,27 @@ const SectionTitle = ({ title }) => {
 
 const StatusPill = ({ status }) => {
   const base = "twire-pill";
-  if (status === "LIVE") {
+  if (status === "live") {
     return <span className={`${base} is-live`}>Live</span>;
   }
-  if (status === "ONGOING") {
+  if (status === "ongoing") {
     return <span className={`${base} is-ongoing`}>Ongoing</span>;
+  }
+  if (status === "completed") {
+    return <span className={`${base} is-completed`}>Completed</span>;
   }
   return <span className={`${base} is-upcoming`}>Upcoming</span>;
 };
 
 const TournamentRow = ({ t, isLast }) => {
+  const status = String(t.status || "").toLowerCase();
+  const displayMode = String(t.mode || "").toUpperCase();
+  const displayRegion = t.region || "Global";
+  const displayPrize =
+    typeof t.prize_pool === "number" || typeof t.prize_pool === "string"
+      ? `$${t.prize_pool}`
+      : t.prize || "-";
+
   return (
     <div className={`twire-row ${isLast ? "" : "twire-row--line"}`}>
       <div className="twire-row__logo">
@@ -180,22 +188,22 @@ const TournamentRow = ({ t, isLast }) => {
       <div className="twire-row__info">
         <div className="twire-row__title">
           <div className="twire-row__name">{t.name}</div>
-          <StatusPill status={t.status} />
+          <StatusPill status={status} />
         </div>
         <div className="twire-row__meta">
-          <span>{t.region}</span>
+          <span>{displayRegion}</span>
           <span className="twire-row__dot" />
-          <span>{t.platform}</span>
+          <span>PC</span>
           <span className="twire-row__dot" />
-          <span>{t.mode}</span>
+          <span>{displayMode}</span>
           <span className="twire-row__dot" />
-          <span>{t.prize}</span>
+          <span>{displayPrize}</span>
         </div>
       </div>
 
       <div className="twire-row__actions">
         <span className="twire-row__hint">
-          {t.status === "LIVE" ? "Now" : "Details"}
+          {status === "live" ? "Now" : "Details"}
         </span>
         <button className="twire-cta">Details</button>
       </div>

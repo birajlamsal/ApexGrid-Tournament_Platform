@@ -6,6 +6,7 @@ const AnnouncementsPage = () => {
   useReveal();
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("all");
 
   useEffect(() => {
     const load = async () => {
@@ -21,16 +22,34 @@ const AnnouncementsPage = () => {
     load();
   }, []);
 
+  const filters = [
+    { label: "All", value: "all" },
+    { label: "Notices", value: "notice" },
+    { label: "Updates", value: "update" }
+  ];
+
+  const visible =
+    activeFilter === "all"
+      ? announcements
+      : announcements.filter(
+          (note) => String(note.type || "").toLowerCase() === activeFilter
+        );
+
   return (
     <main className="announcements-page">
       <section className="page-hero reveal">
         <h1>News & Updates</h1>
         <p>Esports coverage, platform notes, and tournament updates.</p>
         <div className="chip-row">
-          {["All", "Esports", "Patch", "Fantasy", "Announcements"].map((label) => (
-            <span key={label} className="chip">
-              {label}
-            </span>
+          {filters.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              className={`chip ${activeFilter === filter.value ? "active" : ""}`}
+              onClick={() => setActiveFilter(filter.value)}
+            >
+              {filter.label}
+            </button>
           ))}
         </div>
       </section>
@@ -38,11 +57,11 @@ const AnnouncementsPage = () => {
       <section className="section reveal">
         <div className="card-grid news-grid">
           {loading && <div className="skeleton-table" />}
-          {!loading && announcements.length === 0 && (
+          {!loading && visible.length === 0 && (
             <div className="empty-state">No announcements yet.</div>
           )}
           {!loading &&
-            announcements.map((note) => (
+            visible.map((note) => (
               <div key={note.announcement_id} className="announcement-card news-card">
                 <div className="news-card__header">
                   <span className="badge">{note.type}</span>

@@ -5,7 +5,7 @@ const Footer = () => {
     <footer className="site-footer">
       <div className="footer-grid">
         <div className="footer-brand">
-          <div className="logo">PUBG<span>Pulse</span></div>
+          <div className="logo">Apex<span>Grid</span></div>
           <p>Competitive PUBG tournaments, curated stats, and verified results.</p>
           <div className="footer-chips">
             <span className="chip">Global</span>
@@ -27,7 +27,7 @@ const Footer = () => {
         </div>
         <div className="footer-meta">
           <span>Admin-controlled data • PUBG API ready</span>
-          <span>© 2026 PUBGPulse. All rights reserved.</span>
+          <span>© 2026 ApexGrid. All rights reserved.</span>
         </div>
       </div>
     </footer>
