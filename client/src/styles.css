@@ -2753,7 +2753,7 @@ textarea::placeholder {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   .site-header {
     padding: 16px 5vw;
     position: relative;
@@ -3866,7 +3866,7 @@ textarea::placeholder {
 
 }
 
-@media (min-width: 640px) {
+@media (min-width: 901px) {
   .twire-header__grid {
     padding: 0 24px;
     height: 72px;
