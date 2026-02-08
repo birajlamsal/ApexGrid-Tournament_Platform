@@ -101,17 +101,16 @@ const ScrimDetailPage = () => {
       if (!tournament) {
         return;
       }
-      if (
-        !tournament.api_key_required ||
-        (!tournament.pubg_tournament_id && !tournament.custom_match_mode)
-      ) {
+      if (!tournament.pubg_tournament_id && !tournament.custom_match_mode) {
         setLiveData(null);
         setLiveLoading(false);
         return;
       }
       try {
         setLiveLoading(true);
-        const data = await fetchScrimLive(id);
+        const data = await fetchScrimLive(id, {
+          fresh: tournament.custom_match_mode ? "true" : "false"
+        });
         setLiveData(data);
       } catch (error) {
         setLiveData(null);

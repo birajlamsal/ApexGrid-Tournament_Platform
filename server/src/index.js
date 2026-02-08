@@ -6,7 +6,6 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const { nanoid } = require("nanoid");
-const { getCollection, setCollection, updateById } = require("./storage");
 const { verifyAdmin, createToken, authMiddleware } = require("./auth");
 const {
   aggregateMatchPayloads,
@@ -18,10 +17,39 @@ const {
 const {
   dbEnabled,
   initDb,
+  getAllMatches,
   getMatchesByIds,
   upsertMatches,
+  normalizeMatches,
   linkTournamentMatches,
   getTournamentMatchIds,
+  replaceTournamentMatches,
+  listTournaments,
+  getTournamentById,
+  insertTournament,
+  updateTournamentById,
+  deleteTournamentById,
+  listAnnouncements,
+  insertAnnouncement,
+  updateAnnouncementById,
+  deleteAnnouncementById,
+  listTeams,
+  insertTeam,
+  updateTeamById,
+  deleteTeamById,
+  listPlayers,
+  insertPlayer,
+  updatePlayerById,
+  deletePlayerById,
+  listParticipants,
+  listParticipantsByTournament,
+  insertParticipant,
+  updateParticipantById,
+  deleteParticipantById,
+  listWinners,
+  insertWinner,
+  updateWinnerById,
+  deleteWinnerById,
   testDb
 } = require("./db");
 
@@ -64,6 +92,14 @@ const normalizeMatchIds = (value) => {
     .map((id) => id.trim())
     .filter(Boolean);
   return Array.from(new Set(ids));
+};
+
+const chunkArray = (items, size) => {
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
 };
 
 const sortByField = (items, field, direction = "desc") => {
@@ -200,12 +236,14 @@ app.get("/api/pubg/matches/:id", async (req, res) => {
   }
 });
 
-app.get("/api/featured-tournaments", (req, res) => {
-  const tournaments = getCollection("tournaments");
-  const featured = tournaments
-    .filter((item) => item.featured === true)
-    .map(sanitizeTournament);
-  res.json(featured);
+app.get("/api/featured-tournaments", async (req, res) => {
+  try {
+    const tournaments = await listTournaments({ eventType: "tournament" });
+    const featured = tournaments.filter((item) => item.featured === true).map(sanitizeTournament);
+    res.json(featured);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load tournaments" });
+  }
 });
 
 app.get("/api/health", async (req, res) => {
@@ -219,59 +257,41 @@ app.get("/api/health", async (req, res) => {
   });
 });
 
-app.get("/api/tournaments", (req, res) => {
-  const tournaments = getCollection("tournaments");
+app.get("/api/tournaments", async (req, res) => {
   const { status, registration, mode, search, sort } = req.query;
-
-  let filtered = [...tournaments];
-
-  if (status) {
-    filtered = filtered.filter((item) => item.status === status);
+  try {
+    const tournaments = await listTournaments({
+      eventType: "tournament",
+      status,
+      registration,
+      mode,
+      search,
+      sort
+    });
+    res.json(tournaments.map(sanitizeTournament));
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load tournaments" });
   }
-  if (registration) {
-    filtered = filtered.filter((item) => item.registration_status === registration);
-  }
-  if (mode) {
-    filtered = filtered.filter((item) => item.mode === mode);
-  }
-  if (search) {
-    const term = String(search).toLowerCase();
-    filtered = filtered.filter((item) => item.name.toLowerCase().includes(term));
-  }
-
-  if (sort) {
-    if (sort === "start_date") {
-      filtered = sortByField(filtered, "start_date", "asc");
-    }
-    if (sort === "prize_pool") {
-      filtered = sortByField(filtered, "prize_pool", "desc");
-    }
-    if (sort === "registration_charge") {
-      filtered = sortByField(filtered, "registration_charge", "desc");
-    }
-  }
-
-  res.json(filtered.map(sanitizeTournament));
 });
 
-app.get("/api/tournaments/:id", (req, res) => {
-  const tournaments = getCollection("tournaments");
-  const tournament = tournaments.find((item) => item.tournament_id === req.params.id);
-  if (!tournament) {
-    return res.status(404).json({ error: "Tournament not found" });
+app.get("/api/tournaments/:id", async (req, res) => {
+  try {
+    const tournament = await getTournamentById(req.params.id);
+    if (!tournament) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+    const participants = await listParticipantsByTournament(req.params.id);
+    res.json({
+      ...sanitizeTournament(tournament),
+      participants
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load tournament" });
   }
-  const participants = getCollection("participants").filter(
-    (item) => item.tournament_id === req.params.id
-  );
-  res.json({
-    ...sanitizeTournament(tournament),
-    participants
-  });
 });
 
 app.get("/api/tournaments/:id/live", async (req, res) => {
-  const tournaments = getCollection("tournaments");
-  const tournament = tournaments.find((item) => item.tournament_id === req.params.id);
+  const tournament = await getTournamentById(req.params.id);
   if (!tournament) {
     return res.status(404).json({ error: "Tournament not found" });
   }
@@ -358,59 +378,41 @@ app.get("/api/tournaments/:id/live", async (req, res) => {
   }
 });
 
-app.get("/api/scrims", (req, res) => {
-  const scrims = getCollection("scrims");
+app.get("/api/scrims", async (req, res) => {
   const { status, registration, mode, search, sort } = req.query;
-
-  let filtered = [...scrims];
-
-  if (status) {
-    filtered = filtered.filter((item) => item.status === status);
+  try {
+    const scrims = await listTournaments({
+      eventType: "scrim",
+      status,
+      registration,
+      mode,
+      search,
+      sort
+    });
+    res.json(scrims.map(sanitizeScrim));
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load scrims" });
   }
-  if (registration) {
-    filtered = filtered.filter((item) => item.registration_status === registration);
-  }
-  if (mode) {
-    filtered = filtered.filter((item) => item.mode === mode);
-  }
-  if (search) {
-    const term = String(search).toLowerCase();
-    filtered = filtered.filter((item) => item.name.toLowerCase().includes(term));
-  }
-
-  if (sort) {
-    if (sort === "start_date") {
-      filtered = sortByField(filtered, "start_date", "asc");
-    }
-    if (sort === "prize_pool") {
-      filtered = sortByField(filtered, "prize_pool", "desc");
-    }
-    if (sort === "registration_charge") {
-      filtered = sortByField(filtered, "registration_charge", "desc");
-    }
-  }
-
-  res.json(filtered.map(sanitizeScrim));
 });
 
-app.get("/api/scrims/:id", (req, res) => {
-  const scrims = getCollection("scrims");
-  const scrim = scrims.find((item) => item.scrim_id === req.params.id);
-  if (!scrim) {
-    return res.status(404).json({ error: "Scrim not found" });
+app.get("/api/scrims/:id", async (req, res) => {
+  try {
+    const scrim = await getTournamentById(req.params.id);
+    if (!scrim || scrim.event_type !== "scrim") {
+      return res.status(404).json({ error: "Scrim not found" });
+    }
+    const participants = await listParticipantsByTournament(req.params.id);
+    res.json({
+      ...sanitizeScrim(scrim),
+      participants
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load scrim" });
   }
-  const participants = getCollection("participants").filter(
-    (item) => item.tournament_id === req.params.id
-  );
-  res.json({
-    ...sanitizeScrim(scrim),
-    participants
-  });
 });
 
 app.get("/api/scrims/:id/live", async (req, res) => {
-  const scrims = getCollection("scrims");
-  const scrim = scrims.find((item) => item.scrim_id === req.params.id);
+  const scrim = await getTournamentById(req.params.id);
   if (!scrim) {
     return res.status(404).json({ error: "Scrim not found" });
   }
@@ -497,45 +499,61 @@ app.get("/api/scrims/:id/live", async (req, res) => {
   }
 });
 
-app.get("/api/matches", (req, res) => {
-  const matches = getCollection("matches");
-  const limit = Number(req.query.limit || 6);
-  res.json(matches.slice(0, limit));
+app.get("/api/matches", async (req, res) => {
+  try {
+    const matches = await getAllMatches();
+    res.json(matches);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load matches" });
+  }
 });
 
-app.get("/api/team-stats", (req, res) => {
-  const stats = getCollection("teamStats");
-  res.json(stats);
+app.get("/api/team-stats", async (req, res) => {
+  res.json([]);
 });
 
-app.get("/api/player-stats", (req, res) => {
-  const stats = getCollection("playerStats");
-  res.json(stats);
+app.get("/api/player-stats", async (req, res) => {
+  res.json([]);
 });
 
-app.get("/api/winners", (req, res) => {
-  const winners = getCollection("winners");
-  res.json(winners);
+app.get("/api/winners", async (req, res) => {
+  try {
+    const winners = await listWinners();
+    res.json(winners);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load winners" });
+  }
 });
 
-app.get("/api/announcements", (req, res) => {
-  const announcements = getCollection("announcements");
-  res.json(announcements);
+app.get("/api/announcements", async (req, res) => {
+  try {
+    const announcements = await listAnnouncements();
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load announcements" });
+  }
 });
 
-app.get("/api/players", (req, res) => {
-  const players = getCollection("players");
-  res.json(players);
+app.get("/api/players", async (req, res) => {
+  try {
+    const players = await listPlayers("pubg");
+    res.json(players);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load players" });
+  }
 });
 
-app.get("/api/teams", (req, res) => {
-  const teams = getCollection("teams");
-  res.json(teams);
+app.get("/api/teams", async (req, res) => {
+  try {
+    const teams = await listTeams("pubg");
+    res.json(teams);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load teams" });
+  }
 });
 
-app.get("/api/upcoming-matches", (req, res) => {
-  const upcoming = getCollection("upcomingMatches");
-  res.json(upcoming);
+app.get("/api/upcoming-matches", async (req, res) => {
+  res.json([]);
 });
 
 app.post("/api/admin/login", async (req, res) => {
@@ -566,57 +584,131 @@ app.get("/api/admin/matches/exists/:id", async (req, res) => {
   }
 });
 
-app.get("/api/admin/tournaments", (req, res) => {
-  res.json(getCollection("tournaments"));
+app.post("/api/admin/matches/normalize", async (req, res) => {
+  if (!dbEnabled) {
+    return res.status(500).json({ error: "Database not configured" });
+  }
+  const body = req.body || {};
+  const matchIds = Array.isArray(body.match_ids) ? body.match_ids : null;
+  const limit = body.limit || req.query.limit;
+  try {
+    const result = await normalizeMatches({ matchIds, limit });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to normalize matches", details: error.message });
+  }
 });
 
-app.post("/api/admin/tournaments", (req, res) => {
-  const tournaments = getCollection("tournaments");
+app.post("/api/admin/tournaments/:id/ingest-matches", async (req, res) => {
+  if (!dbEnabled) {
+    return res.status(500).json({ error: "Database not configured" });
+  }
+  const tournament = await getTournamentById(req.params.id);
+  if (!tournament || tournament.event_type !== "tournament") {
+    return res.status(404).json({ error: "Tournament not found" });
+  }
+  const apiKey = tournament.tournament_api_key || process.env.PUBG_API_KEY;
+  if (!apiKey) {
+    return res.status(400).json({ error: "PUBG API key not configured" });
+  }
+  try {
+    const limit = Number(req.query.limit || 0);
+    let matchIds = [];
+    if (tournament.custom_match_mode) {
+      matchIds = normalizeMatchIds(tournament.custom_match_ids);
+    } else if (tournament.pubg_tournament_id) {
+      matchIds = await fetchTournamentMatchIds({
+        apiKey,
+        tournamentId: tournament.pubg_tournament_id
+      });
+    } else {
+      matchIds = await getTournamentMatchIds(tournament.tournament_id);
+    }
+    matchIds = normalizeMatchIds(matchIds);
+    if (limit > 0) {
+      matchIds = matchIds.slice(0, limit);
+    }
+    if (!matchIds.length) {
+      return res.status(400).json({ error: "No match IDs available" });
+    }
+    await linkTournamentMatches(tournament.tournament_id, matchIds);
+
+    const stored = await getMatchesByIds(matchIds);
+    const missingIds = matchIds.filter((id) => !stored.has(id));
+
+    let fetchedCount = 0;
+    for (const batch of chunkArray(missingIds, 50)) {
+      const payloads = await fetchMatchPayloads({ apiKey, matchIds: batch });
+      fetchedCount += payloads.length;
+      await upsertMatches(payloads);
+    }
+
+    const normalizedResult = await normalizeMatches({ matchIds });
+
+    res.json({
+      tournament_id: tournament.tournament_id,
+      match_ids: matchIds.length,
+      fetched: fetchedCount,
+      skipped_existing: matchIds.length - missingIds.length,
+      normalized: normalizedResult.normalized
+    });
+  } catch (error) {
+    res.status(502).json({ error: "PUBG API error", details: error.message });
+  }
+});
+
+app.get("/api/admin/tournaments", async (req, res) => {
+  try {
+    const tournaments = await listTournaments({ eventType: "tournament" });
+    res.json(tournaments);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load tournaments" });
+  }
+});
+
+app.post("/api/admin/tournaments", async (req, res) => {
   const payload = req.body || {};
   if (isInvalidDateRange(payload.start_date, payload.end_date)) {
     return res.status(400).json({ error: "End date cannot be before start date." });
   }
-  const tournament = {
-    tournament_id: payload.tournament_id || makeId("TE"),
-    name: payload.name,
-    description: payload.description || "",
-    banner_url: payload.banner_url || "",
-    start_date: payload.start_date,
-    end_date: payload.end_date,
-    status: payload.status || "upcoming",
-    registration_status: payload.registration_status || "closed",
-    mode: payload.mode || "squad",
-    match_type: payload.match_type || "classic",
-    perspective: payload.perspective || "TPP",
-    tier: payload.tier ? String(payload.tier).toUpperCase() : getTierFromPrize(payload.prize_pool),
-    prize_pool: Number(payload.prize_pool || 0),
-    registration_charge: Number(payload.registration_charge || 0),
-    featured: ensureBoolean(payload.featured) === true,
-    max_slots: payload.max_slots || null,
-    region: payload.region || "",
-    rules: payload.rules || "",
-    contact_discord: payload.contact_discord || "",
-    api_key_required: ensureBoolean(payload.api_key_required) === true,
-    tournament_api_key: payload.tournament_api_key || "",
-    api_provider: payload.api_provider || "PUBG",
-    pubg_tournament_id: payload.pubg_tournament_id || "",
-    custom_match_mode: ensureBoolean(payload.custom_match_mode) === true,
-    allow_non_custom: ensureBoolean(payload.allow_non_custom) === true,
-    custom_match_ids: normalizeMatchIds(payload.custom_match_ids)
-  };
-  tournaments.push(tournament);
-  setCollection("tournaments", tournaments);
-  res.status(201).json(tournament);
+  try {
+    const tournament = await insertTournament({
+      ...payload,
+      tournament_id: payload.tournament_id || makeId("TE"),
+      event_type: "tournament",
+      tier: payload.tier ? String(payload.tier).toUpperCase() : getTierFromPrize(payload.prize_pool),
+      featured: ensureBoolean(payload.featured) === true,
+      api_key_required: ensureBoolean(payload.api_key_required) === true,
+      custom_match_mode: ensureBoolean(payload.custom_match_mode) === true,
+      allow_non_custom: ensureBoolean(payload.allow_non_custom) === true,
+      custom_match_ids: normalizeMatchIds(payload.custom_match_ids)
+    });
+    if (tournament.custom_match_mode) {
+      try {
+        await replaceTournamentMatches(
+          tournament.tournament_id,
+          normalizeMatchIds(payload.custom_match_ids)
+        );
+      } catch (err) {
+        return res.status(500).json({
+          error: "Failed to sync match IDs",
+          details: err.message
+        });
+      }
+    }
+    res.status(201).json(tournament);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create tournament" });
+  }
 });
 
-app.put("/api/admin/tournaments/:id", (req, res) => {
-  const tournaments = getCollection("tournaments");
+app.put("/api/admin/tournaments/:id", async (req, res) => {
   const id = req.params.id;
-  const existing = tournaments.find((item) => item.tournament_id === id);
+  const payload = req.body || {};
+  const existing = await getTournamentById(id);
   if (!existing) {
     return res.status(404).json({ error: "Tournament not found" });
   }
-  const payload = req.body || {};
   const startDate =
     Object.prototype.hasOwnProperty.call(payload, "start_date")
       ? payload.start_date
@@ -628,94 +720,110 @@ app.put("/api/admin/tournaments/:id", (req, res) => {
   if (isInvalidDateRange(startDate, endDate)) {
     return res.status(400).json({ error: "End date cannot be before start date." });
   }
-  const updated = updateById(tournaments, "tournament_id", id, (current) => {
-    const next = { ...payload };
-    if (Object.prototype.hasOwnProperty.call(payload, "tier")) {
-      next.tier = payload.tier ? String(payload.tier).toUpperCase() : "";
+  try {
+    const updated = await updateTournamentById(id, {
+      ...payload,
+      tier: Object.prototype.hasOwnProperty.call(payload, "tier")
+        ? payload.tier
+          ? String(payload.tier).toUpperCase()
+          : ""
+        : undefined,
+      custom_match_mode: Object.prototype.hasOwnProperty.call(payload, "custom_match_mode")
+        ? ensureBoolean(payload.custom_match_mode) === true
+        : undefined,
+      allow_non_custom: Object.prototype.hasOwnProperty.call(payload, "allow_non_custom")
+        ? ensureBoolean(payload.allow_non_custom) === true
+        : undefined,
+      custom_match_ids: Object.prototype.hasOwnProperty.call(payload, "custom_match_ids")
+        ? normalizeMatchIds(payload.custom_match_ids)
+        : undefined
+    });
+    if (!updated) {
+      return res.status(404).json({ error: "Tournament not found" });
     }
-    if (Object.prototype.hasOwnProperty.call(payload, "custom_match_mode")) {
-      next.custom_match_mode = ensureBoolean(payload.custom_match_mode) === true;
+    if (updated.custom_match_mode) {
+      try {
+        await replaceTournamentMatches(
+          updated.tournament_id,
+          normalizeMatchIds(payload.custom_match_ids ?? updated.custom_match_ids)
+        );
+      } catch (err) {
+        return res.status(500).json({
+          error: "Failed to sync match IDs",
+          details: err.message
+        });
+      }
     }
-    if (Object.prototype.hasOwnProperty.call(payload, "allow_non_custom")) {
-      next.allow_non_custom = ensureBoolean(payload.allow_non_custom) === true;
-    }
-    if (Object.prototype.hasOwnProperty.call(payload, "custom_match_ids")) {
-      next.custom_match_ids = normalizeMatchIds(payload.custom_match_ids);
-    }
-    return {
-      ...current,
-      ...next,
-      tournament_id: current.tournament_id
-    };
-  });
-  if (!updated) {
-    return res.status(404).json({ error: "Tournament not found" });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update tournament" });
   }
-  setCollection("tournaments", tournaments);
-  res.json(updated);
 });
 
-app.delete("/api/admin/tournaments/:id", (req, res) => {
-  const tournaments = getCollection("tournaments");
-  const filtered = tournaments.filter((item) => item.tournament_id !== req.params.id);
-  if (filtered.length === tournaments.length) {
-    return res.status(404).json({ error: "Tournament not found" });
+app.delete("/api/admin/tournaments/:id", async (req, res) => {
+  try {
+    const ok = await deleteTournamentById(req.params.id);
+    if (!ok) {
+      return res.status(404).json({ error: "Tournament not found" });
+    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete tournament" });
   }
-  setCollection("tournaments", filtered);
-  res.status(204).send();
 });
 
-app.get("/api/admin/scrims", (req, res) => {
-  res.json(getCollection("scrims"));
+app.get("/api/admin/scrims", async (req, res) => {
+  try {
+    const scrims = await listTournaments({ eventType: "scrim" });
+    res.json(scrims);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load scrims" });
+  }
 });
 
-app.post("/api/admin/scrims", (req, res) => {
-  const scrims = getCollection("scrims");
+app.post("/api/admin/scrims", async (req, res) => {
   const payload = req.body || {};
   if (isInvalidDateRange(payload.start_date, payload.end_date)) {
     return res.status(400).json({ error: "End date cannot be before start date." });
   }
-  const scrim = {
-    scrim_id: payload.scrim_id || makeId("SE"),
-    name: payload.name,
-    description: payload.description || "",
-    banner_url: payload.banner_url || "",
-    start_date: payload.start_date,
-    end_date: payload.end_date,
-    status: payload.status || "upcoming",
-    registration_status: payload.registration_status || "closed",
-    mode: payload.mode || "squad",
-    match_type: payload.match_type || "classic",
-    perspective: payload.perspective || "TPP",
-    tier: payload.tier ? String(payload.tier).toUpperCase() : getTierFromPrize(payload.prize_pool),
-    prize_pool: Number(payload.prize_pool || 0),
-    registration_charge: Number(payload.registration_charge || 0),
-    featured: ensureBoolean(payload.featured) === true,
-    max_slots: payload.max_slots || null,
-    region: payload.region || "",
-    rules: payload.rules || "",
-    contact_discord: payload.contact_discord || "",
-    api_key_required: ensureBoolean(payload.api_key_required) === true,
-    scrim_api_key: payload.scrim_api_key || "",
-    api_provider: payload.api_provider || "PUBG",
-    pubg_tournament_id: payload.pubg_tournament_id || "",
-    custom_match_mode: ensureBoolean(payload.custom_match_mode) === true,
-    allow_non_custom: ensureBoolean(payload.allow_non_custom) === true,
-    custom_match_ids: normalizeMatchIds(payload.custom_match_ids)
-  };
-  scrims.push(scrim);
-  setCollection("scrims", scrims);
-  res.status(201).json(scrim);
+  try {
+    const scrim = await insertTournament({
+      ...payload,
+      tournament_id: payload.scrim_id || makeId("SE"),
+      event_type: "scrim",
+      tier: payload.tier ? String(payload.tier).toUpperCase() : getTierFromPrize(payload.prize_pool),
+      featured: ensureBoolean(payload.featured) === true,
+      api_key_required: ensureBoolean(payload.api_key_required) === true,
+      custom_match_mode: ensureBoolean(payload.custom_match_mode) === true,
+      allow_non_custom: ensureBoolean(payload.allow_non_custom) === true,
+      custom_match_ids: normalizeMatchIds(payload.custom_match_ids)
+    });
+    if (scrim.custom_match_mode) {
+      try {
+        await replaceTournamentMatches(
+          scrim.tournament_id,
+          normalizeMatchIds(payload.custom_match_ids)
+        );
+      } catch (err) {
+        return res.status(500).json({
+          error: "Failed to sync match IDs",
+          details: err.message
+        });
+      }
+    }
+    res.status(201).json(scrim);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create scrim" });
+  }
 });
 
-app.put("/api/admin/scrims/:id", (req, res) => {
-  const scrims = getCollection("scrims");
+app.put("/api/admin/scrims/:id", async (req, res) => {
   const id = req.params.id;
-  const existing = scrims.find((item) => item.scrim_id === id);
-  if (!existing) {
+  const payload = req.body || {};
+  const existing = await getTournamentById(id);
+  if (!existing || existing.event_type !== "scrim") {
     return res.status(404).json({ error: "Scrim not found" });
   }
-  const payload = req.body || {};
   const startDate =
     Object.prototype.hasOwnProperty.call(payload, "start_date")
       ? payload.start_date
@@ -727,320 +835,305 @@ app.put("/api/admin/scrims/:id", (req, res) => {
   if (isInvalidDateRange(startDate, endDate)) {
     return res.status(400).json({ error: "End date cannot be before start date." });
   }
-  const updated = updateById(scrims, "scrim_id", id, (current) => {
-    const next = { ...payload };
-    if (Object.prototype.hasOwnProperty.call(payload, "tier")) {
-      next.tier = payload.tier ? String(payload.tier).toUpperCase() : "";
+  try {
+    const updated = await updateTournamentById(id, {
+      ...payload,
+      tier: Object.prototype.hasOwnProperty.call(payload, "tier")
+        ? payload.tier
+          ? String(payload.tier).toUpperCase()
+          : ""
+        : undefined,
+      custom_match_mode: Object.prototype.hasOwnProperty.call(payload, "custom_match_mode")
+        ? ensureBoolean(payload.custom_match_mode) === true
+        : undefined,
+      allow_non_custom: Object.prototype.hasOwnProperty.call(payload, "allow_non_custom")
+        ? ensureBoolean(payload.allow_non_custom) === true
+        : undefined,
+      custom_match_ids: Object.prototype.hasOwnProperty.call(payload, "custom_match_ids")
+        ? normalizeMatchIds(payload.custom_match_ids)
+        : undefined
+    });
+    if (!updated) {
+      return res.status(404).json({ error: "Scrim not found" });
     }
-    if (Object.prototype.hasOwnProperty.call(payload, "custom_match_mode")) {
-      next.custom_match_mode = ensureBoolean(payload.custom_match_mode) === true;
+    if (updated.custom_match_mode) {
+      try {
+        await replaceTournamentMatches(
+          updated.tournament_id,
+          normalizeMatchIds(payload.custom_match_ids ?? updated.custom_match_ids)
+        );
+      } catch (err) {
+        return res.status(500).json({
+          error: "Failed to sync match IDs",
+          details: err.message
+        });
+      }
     }
-    if (Object.prototype.hasOwnProperty.call(payload, "allow_non_custom")) {
-      next.allow_non_custom = ensureBoolean(payload.allow_non_custom) === true;
-    }
-    if (Object.prototype.hasOwnProperty.call(payload, "custom_match_ids")) {
-      next.custom_match_ids = normalizeMatchIds(payload.custom_match_ids);
-    }
-    return {
-      ...current,
-      ...next,
-      scrim_id: current.scrim_id
-    };
-  });
-  if (!updated) {
-    return res.status(404).json({ error: "Scrim not found" });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update scrim" });
   }
-  setCollection("scrims", scrims);
-  res.json(updated);
 });
 
-app.delete("/api/admin/scrims/:id", (req, res) => {
-  const scrims = getCollection("scrims");
-  const filtered = scrims.filter((item) => item.scrim_id !== req.params.id);
-  if (filtered.length === scrims.length) {
-    return res.status(404).json({ error: "Scrim not found" });
+app.delete("/api/admin/scrims/:id", async (req, res) => {
+  try {
+    const ok = await deleteTournamentById(req.params.id);
+    if (!ok) {
+      return res.status(404).json({ error: "Scrim not found" });
+    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete scrim" });
   }
-  setCollection("scrims", filtered);
-  res.status(204).send();
 });
 
-app.get("/api/admin/players", (req, res) => {
-  res.json(getCollection("players"));
+app.get("/api/admin/players", async (req, res) => {
+  try {
+    const players = await listPlayers("pubg");
+    res.json(players);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load players" });
+  }
 });
 
-app.post("/api/admin/players", (req, res) => {
-  const players = getCollection("players");
+app.post("/api/admin/players", async (req, res) => {
   const payload = req.body || {};
-  const player = {
-    player_id: payload.player_id || makeId("PE"),
-    player_name: payload.player_name,
-    discord_id: payload.discord_id,
-    pubg_ingame_name: payload.pubg_ingame_name || "",
-    profile_pic_url: payload.profile_pic_url || "",
-    email: payload.email || "",
-    region: payload.region || "",
-    notes: payload.notes || ""
-  };
-  players.push(player);
-  setCollection("players", players);
-  res.status(201).json(player);
-});
-
-app.put("/api/admin/players/:id", (req, res) => {
-  const players = getCollection("players");
-  const id = req.params.id;
-  const updated = updateById(players, "player_id", id, (current) => ({
-    ...current,
-    ...req.body,
-    player_id: current.player_id
-  }));
-  if (!updated) {
-    return res.status(404).json({ error: "Player not found" });
+  try {
+    const player = await insertPlayer({
+      ...payload,
+      player_id: payload.player_id || makeId("PE"),
+      game_id: "pubg"
+    });
+    res.status(201).json(player);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create player" });
   }
-  setCollection("players", players);
-  res.json(updated);
 });
 
-app.delete("/api/admin/players/:id", (req, res) => {
-  const players = getCollection("players");
-  const filtered = players.filter((item) => item.player_id !== req.params.id);
-  if (filtered.length === players.length) {
-    return res.status(404).json({ error: "Player not found" });
+app.put("/api/admin/players/:id", async (req, res) => {
+  try {
+    const updated = await updatePlayerById(req.params.id, req.body || {}, "pubg");
+    if (!updated) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update player" });
   }
-  setCollection("players", filtered);
-  res.status(204).send();
 });
 
-app.get("/api/admin/teams", (req, res) => {
-  res.json(getCollection("teams"));
+app.delete("/api/admin/players/:id", async (req, res) => {
+  try {
+    const ok = await deletePlayerById(req.params.id, "pubg");
+    if (!ok) {
+      return res.status(404).json({ error: "Player not found" });
+    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete player" });
+  }
 });
 
-app.post("/api/admin/teams", (req, res) => {
-  const teams = getCollection("teams");
+app.get("/api/admin/teams", async (req, res) => {
+  try {
+    const teams = await listTeams("pubg");
+    res.json(teams);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load teams" });
+  }
+});
+
+app.post("/api/admin/teams", async (req, res) => {
   const payload = req.body || {};
-  const team = {
-    team_id: payload.team_id || makeId("TE"),
-    team_key: payload.team_key || nanoid(12),
-    team_name: payload.team_name,
-    team_logo_url: payload.team_logo_url || "",
-    captain_player_id: payload.captain_player_id,
-    player_ids: payload.player_ids || [],
-    discord_contact: payload.discord_contact || "",
-    region: payload.region || "",
-    notes: payload.notes || ""
-  };
-  teams.push(team);
-  setCollection("teams", teams);
-  res.status(201).json(team);
+  try {
+    const team = await insertTeam({
+      ...payload,
+      team_id: payload.team_id || makeId("TE"),
+      game_id: "pubg"
+    });
+    res.status(201).json(team);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create team" });
+  }
 });
 
-app.put("/api/admin/teams/:id", (req, res) => {
-  const teams = getCollection("teams");
-  const id = req.params.id;
-  const updated = updateById(teams, "team_id", id, (current) => ({
-    ...current,
-    ...req.body,
-    team_id: current.team_id
-  }));
-  if (!updated) {
-    return res.status(404).json({ error: "Team not found" });
+app.put("/api/admin/teams/:id", async (req, res) => {
+  try {
+    const updated = await updateTeamById(req.params.id, req.body || {}, "pubg");
+    if (!updated) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update team" });
   }
-  setCollection("teams", teams);
-  res.json(updated);
 });
 
-app.delete("/api/admin/teams/:id", (req, res) => {
-  const teams = getCollection("teams");
-  const filtered = teams.filter((item) => item.team_id !== req.params.id);
-  if (filtered.length === teams.length) {
-    return res.status(404).json({ error: "Team not found" });
+app.delete("/api/admin/teams/:id", async (req, res) => {
+  try {
+    const ok = await deleteTeamById(req.params.id, "pubg");
+    if (!ok) {
+      return res.status(404).json({ error: "Team not found" });
+    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete team" });
   }
-  setCollection("teams", filtered);
-  res.status(204).send();
 });
 
 app.get("/api/admin/matches", (req, res) => {
-  res.json(getCollection("matches"));
+  res.json([]);
 });
 
 app.post("/api/admin/matches", (req, res) => {
-  const matches = getCollection("matches");
-  const payload = req.body || {};
-  const match = {
-    match_id: payload.match_id || nanoid(10),
-    tournament_id: payload.tournament_id,
-    match_name: payload.match_name,
-    match_time: payload.match_time,
-    teams: payload.teams || [],
-    result_summary: payload.result_summary || "",
-    winner: payload.winner || "",
-    placement: payload.placement || []
-  };
-  matches.push(match);
-  setCollection("matches", matches);
-  res.status(201).json(match);
+  res.status(501).json({ error: "Manual match admin is not supported in DB mode." });
 });
 
 app.put("/api/admin/matches/:id", (req, res) => {
-  const matches = getCollection("matches");
-  const id = req.params.id;
-  const updated = updateById(matches, "match_id", id, (current) => ({
-    ...current,
-    ...req.body,
-    match_id: current.match_id
-  }));
-  if (!updated) {
-    return res.status(404).json({ error: "Match not found" });
-  }
-  setCollection("matches", matches);
-  res.json(updated);
+  res.status(501).json({ error: "Manual match admin is not supported in DB mode." });
 });
 
 app.delete("/api/admin/matches/:id", (req, res) => {
-  const matches = getCollection("matches");
-  const filtered = matches.filter((item) => item.match_id !== req.params.id);
-  if (filtered.length === matches.length) {
-    return res.status(404).json({ error: "Match not found" });
+  res.status(501).json({ error: "Manual match admin is not supported in DB mode." });
+});
+
+app.get("/api/admin/participants", async (req, res) => {
+  try {
+    const participants = await listParticipants();
+    res.json(participants);
+  } catch (error) {
+    console.error("Failed to load participants:", error);
+    res.status(500).json({ error: "Failed to load participants" });
   }
-  setCollection("matches", filtered);
-  res.status(204).send();
 });
 
-app.get("/api/admin/participants", (req, res) => {
-  res.json(getCollection("participants"));
-});
-
-app.post("/api/admin/participants", (req, res) => {
-  const participants = getCollection("participants");
+app.post("/api/admin/participants", async (req, res) => {
   const payload = req.body || {};
-  const participant = {
-    participant_id: payload.participant_id || nanoid(10),
-    tournament_id: payload.tournament_id,
-    type: payload.type,
-    linked_player_id: payload.linked_player_id || null,
-    linked_team_id: payload.linked_team_id || null,
-    status: payload.status || "pending",
-    payment_status: payload.payment_status || "unpaid",
-    slot_number: payload.slot_number || null,
-    notes: payload.notes || ""
-  };
-  participants.push(participant);
-  setCollection("participants", participants);
-  res.status(201).json(participant);
-});
-
-app.put("/api/admin/participants/:id", (req, res) => {
-  const participants = getCollection("participants");
-  const id = req.params.id;
-  const updated = updateById(participants, "participant_id", id, (current) => ({
-    ...current,
-    ...req.body,
-    participant_id: current.participant_id
-  }));
-  if (!updated) {
-    return res.status(404).json({ error: "Participant not found" });
+  try {
+    const participant = await insertParticipant({
+      ...payload,
+      participant_id: payload.participant_id || nanoid(10)
+    });
+    res.status(201).json(participant);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create participant" });
   }
-  setCollection("participants", participants);
-  res.json(updated);
 });
 
-app.delete("/api/admin/participants/:id", (req, res) => {
-  const participants = getCollection("participants");
-  const filtered = participants.filter((item) => item.participant_id !== req.params.id);
-  if (filtered.length === participants.length) {
-    return res.status(404).json({ error: "Participant not found" });
+app.put("/api/admin/participants/:id", async (req, res) => {
+  try {
+    const updated = await updateParticipantById(req.params.id, req.body || {});
+    if (!updated) {
+      return res.status(404).json({ error: "Participant not found" });
+    }
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update participant" });
   }
-  setCollection("participants", filtered);
-  res.status(204).send();
 });
 
-app.get("/api/admin/winners", (req, res) => {
-  res.json(getCollection("winners"));
+app.delete("/api/admin/participants/:id", async (req, res) => {
+  try {
+    const ok = await deleteParticipantById(req.params.id);
+    if (!ok) {
+      return res.status(404).json({ error: "Participant not found" });
+    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete participant" });
+  }
 });
 
-app.post("/api/admin/winners", (req, res) => {
-  const winners = getCollection("winners");
+app.get("/api/admin/winners", async (req, res) => {
+  try {
+    const winners = await listWinners();
+    res.json(winners);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load winners" });
+  }
+});
+
+app.post("/api/admin/winners", async (req, res) => {
   const payload = req.body || {};
-  const record = {
-    winner_id: payload.winner_id || nanoid(10),
-    tournament_id: payload.tournament_id,
-    tournament_name: payload.tournament_name,
-    by_points: payload.by_points || null,
-    most_kills: payload.most_kills || null
-  };
-  winners.push(record);
-  setCollection("winners", winners);
-  res.status(201).json(record);
-});
-
-app.put("/api/admin/winners/:id", (req, res) => {
-  const winners = getCollection("winners");
-  const id = req.params.id;
-  const updated = updateById(winners, "winner_id", id, (current) => ({
-    ...current,
-    ...req.body,
-    winner_id: current.winner_id
-  }));
-  if (!updated) {
-    return res.status(404).json({ error: "Winner record not found" });
+  try {
+    const record = await insertWinner({
+      ...payload,
+      winner_id: payload.winner_id || nanoid(10)
+    });
+    res.status(201).json(record);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create winner" });
   }
-  setCollection("winners", winners);
-  res.json(updated);
 });
 
-app.delete("/api/admin/winners/:id", (req, res) => {
-  const winners = getCollection("winners");
-  const filtered = winners.filter((item) => item.winner_id !== req.params.id);
-  if (filtered.length === winners.length) {
-    return res.status(404).json({ error: "Winner record not found" });
+app.put("/api/admin/winners/:id", async (req, res) => {
+  try {
+    const updated = await updateWinnerById(req.params.id, req.body || {});
+    if (!updated) {
+      return res.status(404).json({ error: "Winner record not found" });
+    }
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update winner" });
   }
-  setCollection("winners", filtered);
-  res.status(204).send();
 });
 
-app.get("/api/admin/announcements", (req, res) => {
-  res.json(getCollection("announcements"));
+app.delete("/api/admin/winners/:id", async (req, res) => {
+  try {
+    const ok = await deleteWinnerById(req.params.id);
+    if (!ok) {
+      return res.status(404).json({ error: "Winner record not found" });
+    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete winner" });
+  }
 });
 
-app.post("/api/admin/announcements", (req, res) => {
-  const announcements = getCollection("announcements");
+app.get("/api/admin/announcements", async (req, res) => {
+  try {
+    const announcements = await listAnnouncements();
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load announcements" });
+  }
+});
+
+app.post("/api/admin/announcements", async (req, res) => {
   const payload = req.body || {};
-  const announcement = {
-    announcement_id: payload.announcement_id || nanoid(10),
-    title: payload.title,
-    body: payload.body,
-    type: payload.type || "notice",
-    importance: payload.importance || "medium",
-    created_at: payload.created_at || new Date().toISOString()
-  };
-  announcements.push(announcement);
-  setCollection("announcements", announcements);
-  res.status(201).json(announcement);
+  try {
+    const announcement = await insertAnnouncement({
+      ...payload,
+      announcement_id: payload.announcement_id || nanoid(10)
+    });
+    res.status(201).json(announcement);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to create announcement" });
+  }
 });
 
-app.put("/api/admin/announcements/:id", (req, res) => {
-  const announcements = getCollection("announcements");
-  const id = req.params.id;
-  const updated = updateById(announcements, "announcement_id", id, (current) => ({
-    ...current,
-    ...req.body,
-    announcement_id: current.announcement_id
-  }));
-  if (!updated) {
-    return res.status(404).json({ error: "Announcement not found" });
+app.put("/api/admin/announcements/:id", async (req, res) => {
+  try {
+    const updated = await updateAnnouncementById(req.params.id, req.body || {});
+    if (!updated) {
+      return res.status(404).json({ error: "Announcement not found" });
+    }
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update announcement" });
   }
-  setCollection("announcements", announcements);
-  res.json(updated);
 });
 
-app.delete("/api/admin/announcements/:id", (req, res) => {
-  const announcements = getCollection("announcements");
-  const filtered = announcements.filter((item) => item.announcement_id !== req.params.id);
-  if (filtered.length === announcements.length) {
-    return res.status(404).json({ error: "Announcement not found" });
+app.delete("/api/admin/announcements/:id", async (req, res) => {
+  try {
+    const ok = await deleteAnnouncementById(req.params.id);
+    if (!ok) {
+      return res.status(404).json({ error: "Announcement not found" });
+    }
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete announcement" });
   }
-  setCollection("announcements", filtered);
-  res.status(204).send();
 });
 
 const startServer = async () => {

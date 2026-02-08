@@ -278,7 +278,14 @@ const fetchMatchPayloads = async ({ apiKey, matchIds }) => {
   );
   const payloads = [];
   for (const matchId of cleanedIds) {
-    payloads.push(await request(apiKey, `/matches/${matchId}`));
+    try {
+      payloads.push(await request(apiKey, `/matches/${matchId}`));
+    } catch (error) {
+      if (String(error.message || "").startsWith("PUBG API 404")) {
+        continue;
+      }
+      throw error;
+    }
   }
   return payloads;
 };

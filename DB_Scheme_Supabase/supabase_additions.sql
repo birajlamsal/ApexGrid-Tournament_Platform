@@ -11,6 +11,9 @@ ALTER TABLE IF EXISTS tournaments
   ADD COLUMN IF NOT EXISTS featured BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS tier TEXT,
   ADD COLUMN IF NOT EXISTS mode TEXT,
+  ADD COLUMN IF NOT EXISTS match_type TEXT,
+  ADD COLUMN IF NOT EXISTS perspective TEXT,
+  ADD COLUMN IF NOT EXISTS prize_pool NUMERIC DEFAULT 0,
   ADD COLUMN IF NOT EXISTS region TEXT,
   ADD COLUMN IF NOT EXISTS banner_url TEXT,
   ADD COLUMN IF NOT EXISTS rules TEXT,
@@ -45,6 +48,22 @@ CREATE TABLE IF NOT EXISTS announcements (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- 2b) Extend players/teams for admin fields
+ALTER TABLE IF EXISTS players
+  ADD COLUMN IF NOT EXISTS discord_id TEXT,
+  ADD COLUMN IF NOT EXISTS pubg_ingame_name TEXT,
+  ADD COLUMN IF NOT EXISTS profile_pic_url TEXT,
+  ADD COLUMN IF NOT EXISTS email TEXT,
+  ADD COLUMN IF NOT EXISTS region TEXT,
+  ADD COLUMN IF NOT EXISTS notes TEXT;
+
+ALTER TABLE IF EXISTS teams
+  ADD COLUMN IF NOT EXISTS team_logo_url TEXT,
+  ADD COLUMN IF NOT EXISTS captain_player_id TEXT,
+  ADD COLUMN IF NOT EXISTS discord_contact TEXT,
+  ADD COLUMN IF NOT EXISTS region TEXT,
+  ADD COLUMN IF NOT EXISTS notes TEXT;
+
 -- 3) Participants (registrations)
 CREATE TABLE IF NOT EXISTS participants (
   participant_id TEXT PRIMARY KEY,
@@ -55,7 +74,8 @@ CREATE TABLE IF NOT EXISTS participants (
   status TEXT DEFAULT 'pending',
   payment_status TEXT DEFAULT 'unpaid',
   slot_number INTEGER,
-  notes TEXT
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 4) Winners (optional summary table)
@@ -69,6 +89,168 @@ CREATE TABLE IF NOT EXISTS winners (
   kills INTEGER
 );
 
+-- 4b) Tournament ↔ Match linkage (allows custom IDs before match ingestion)
+CREATE TABLE IF NOT EXISTS tournament_matches (
+  tournament_id TEXT NOT NULL REFERENCES tournaments(tournament_id) ON DELETE CASCADE,
+  match_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (tournament_id, match_id)
+);
+
 -- 5) Match winner pointer (optional)
 ALTER TABLE IF EXISTS match_information
   ADD COLUMN IF NOT EXISTS winner_team_id TEXT;
+
+-- 6) Compatibility for old match tables (used by API caching)
+ALTER TABLE IF EXISTS match_rosters
+  ADD COLUMN IF NOT EXISTS team_id TEXT,
+  ADD COLUMN IF NOT EXISTS shard_id TEXT;
+
+-- 7) Ensure unique constraints for ON CONFLICT upserts
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'matches'
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'matches_pkey'
+    ) THEN
+      ALTER TABLE matches ADD CONSTRAINT matches_pkey PRIMARY KEY (match_id);
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'match_details'
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'match_details_pkey'
+    ) THEN
+      ALTER TABLE match_details ADD CONSTRAINT match_details_pkey PRIMARY KEY (match_id);
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'match_assets'
+  ) THEN
+    ALTER TABLE match_assets
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS created_at_api TIMESTAMPTZ;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'match_assets_pkey'
+    ) THEN
+      ALTER TABLE match_assets ADD CONSTRAINT match_assets_pkey PRIMARY KEY (asset_id);
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'match_assets_match_id_fkey'
+    ) THEN
+      ALTER TABLE match_assets DROP CONSTRAINT match_assets_match_id_fkey;
+    END IF;
+    ALTER TABLE match_assets
+      ADD CONSTRAINT match_assets_match_id_fkey
+      FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'match_rosters'
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'match_rosters_pkey'
+    ) THEN
+      ALTER TABLE match_rosters ADD CONSTRAINT match_rosters_pkey PRIMARY KEY (roster_id);
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'match_rosters_match_id_fkey'
+    ) THEN
+      ALTER TABLE match_rosters DROP CONSTRAINT match_rosters_match_id_fkey;
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'match_rosters_roster_id_fkey'
+    ) THEN
+      ALTER TABLE match_rosters DROP CONSTRAINT match_rosters_roster_id_fkey;
+    END IF;
+    ALTER TABLE match_rosters
+      ADD CONSTRAINT match_rosters_match_id_fkey
+      FOREIGN KEY (match_id) REFERENCES matches(match_id) ON DELETE CASCADE;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'match_rosters_roster_id_key'
+    ) THEN
+      ALTER TABLE match_rosters ADD CONSTRAINT match_rosters_roster_id_key UNIQUE (roster_id);
+    END IF;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'match_participants'
+  ) THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'match_participants_pkey'
+    ) THEN
+      ALTER TABLE match_participants ADD CONSTRAINT match_participants_pkey PRIMARY KEY (participant_id);
+    END IF;
+  END IF;
+END $$;
+
+-- 8) Create missing match tables for normalization
+CREATE TABLE IF NOT EXISTS match_participants (
+  participant_id TEXT PRIMARY KEY,
+  match_id TEXT NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+  roster_id TEXT,
+  player_id TEXT,
+  player_name TEXT,
+  shard_id TEXT,
+  dbnos INTEGER,
+  assists INTEGER,
+  boosts INTEGER,
+  damage_dealt DOUBLE PRECISION,
+  death_type TEXT,
+  headshot_kills INTEGER,
+  heals INTEGER,
+  kill_place INTEGER,
+  kill_streaks INTEGER,
+  kills INTEGER,
+  longest_kill DOUBLE PRECISION,
+  revives INTEGER,
+  ride_distance DOUBLE PRECISION,
+  road_kills INTEGER,
+  swim_distance DOUBLE PRECISION,
+  team_kills INTEGER,
+  time_survived DOUBLE PRECISION,
+  vehicle_destroys INTEGER,
+  walk_distance DOUBLE PRECISION,
+  weapons_acquired INTEGER,
+  win_place INTEGER,
+  raw_stats JSONB
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'match_participants_roster_id_fkey'
+  ) THEN
+    ALTER TABLE match_participants
+      ADD CONSTRAINT match_participants_roster_id_fkey
+      FOREIGN KEY (roster_id) REFERENCES match_rosters(roster_id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS match_roster_participants (
+  roster_id TEXT NOT NULL REFERENCES match_rosters(roster_id) ON DELETE CASCADE,
+  participant_id TEXT NOT NULL REFERENCES match_participants(participant_id) ON DELETE CASCADE,
+  PRIMARY KEY (roster_id, participant_id)
+);
