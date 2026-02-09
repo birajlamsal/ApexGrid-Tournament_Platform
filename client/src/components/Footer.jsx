@@ -8,7 +8,7 @@ const Footer = () => {
           <div className="footer-social">
             <a
               className="footer-social__item"
-              href="https://facebook.com"
+              href="https://www.facebook.com/birajlamsalhoma/"
               target="_blank"
               rel="noreferrer"
               aria-label="Facebook"
@@ -20,7 +20,7 @@ const Footer = () => {
             </a>
             <a
               className="footer-social__item"
-              href="https://instagram.com"
+              href="https://www.instagram.com/birajlamsal/"
               target="_blank"
               rel="noreferrer"
               aria-label="Instagram"
@@ -44,7 +44,7 @@ const Footer = () => {
             </a>
             <a
               className="footer-social__item"
-              href="https://x.com"
+              href="https://x.com/BirajLamsal"
               target="_blank"
               rel="noreferrer"
               aria-label="X (Twitter)"
@@ -56,7 +56,7 @@ const Footer = () => {
             </a>
             <a
               className="footer-social__item"
-              href="https://linkedin.com"
+              href="https://www.linkedin.com/in/birajlamsal/"
               target="_blank"
               rel="noreferrer"
               aria-label="LinkedIn"

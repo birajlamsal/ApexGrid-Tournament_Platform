@@ -33,7 +33,7 @@ const LeftRail = () => {
         <div className="twire-rail__social">
           <a
             className="twire-rail__social-item"
-            href="https://facebook.com"
+            href="https://www.facebook.com/birajlamsalhoma/"
             target="_blank"
             rel="noreferrer"
             aria-label="Facebook"
@@ -45,7 +45,7 @@ const LeftRail = () => {
           </a>
           <a
             className="twire-rail__social-item"
-            href="https://instagram.com"
+            href="https://www.instagram.com/birajlamsal/"
             target="_blank"
             rel="noreferrer"
             aria-label="Instagram"
@@ -69,7 +69,7 @@ const LeftRail = () => {
           </a>
           <a
             className="twire-rail__social-item"
-            href="https://x.com"
+            href="https://x.com/BirajLamsal"
             target="_blank"
             rel="noreferrer"
             aria-label="X (Twitter)"
@@ -81,7 +81,7 @@ const LeftRail = () => {
           </a>
           <a
             className="twire-rail__social-item"
-            href="https://linkedin.com"
+            href="https://www.linkedin.com/in/birajlamsal/"
             target="_blank"
             rel="noreferrer"
             aria-label="LinkedIn"
