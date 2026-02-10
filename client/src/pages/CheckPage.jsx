@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 
+const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
+const apiUrl = (path) => `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+
 const CheckPage = () => {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState(null);
@@ -9,7 +12,7 @@ const CheckPage = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/health");
+      const res = await fetch(apiUrl("/api/health"));
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
         throw new Error(payload.error || "Request failed");

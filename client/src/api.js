@@ -1,3 +1,7 @@
+const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/$/, "");
+const apiUrl = (path) => `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+const apiFetch = (path, options) => fetch(apiUrl(path), options);
+
 const handleResponse = async (response) => {
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -7,53 +11,53 @@ const handleResponse = async (response) => {
 };
 
 export const fetchFeaturedTournaments = () =>
-  fetch("/api/featured-tournaments").then(handleResponse);
+  apiFetch("/api/featured-tournaments").then(handleResponse);
 
 export const fetchTournaments = (params = {}) => {
   const search = new URLSearchParams(params);
-  return fetch(`/api/tournaments?${search.toString()}`).then(handleResponse);
+  return apiFetch(`/api/tournaments?${search.toString()}`).then(handleResponse);
 };
 
 export const fetchTournament = (id) =>
-  fetch(`/api/tournaments/${id}`).then(handleResponse);
+  apiFetch(`/api/tournaments/${id}`).then(handleResponse);
 
 export const fetchTournamentLive = (id, params = {}) => {
   const search = new URLSearchParams(params);
   const suffix = search.toString() ? `?${search.toString()}` : "";
-  return fetch(`/api/tournaments/${id}/live${suffix}`).then(handleResponse);
+  return apiFetch(`/api/tournaments/${id}/live${suffix}`).then(handleResponse);
 };
 
 export const fetchScrims = (params = {}) => {
   const search = new URLSearchParams(params);
-  return fetch(`/api/scrims?${search.toString()}`).then(handleResponse);
+  return apiFetch(`/api/scrims?${search.toString()}`).then(handleResponse);
 };
 
-export const fetchScrim = (id) => fetch(`/api/scrims/${id}`).then(handleResponse);
+export const fetchScrim = (id) => apiFetch(`/api/scrims/${id}`).then(handleResponse);
 
 export const fetchScrimLive = (id, params = {}) => {
   const search = new URLSearchParams(params);
   const suffix = search.toString() ? `?${search.toString()}` : "";
-  return fetch(`/api/scrims/${id}/live${suffix}`).then(handleResponse);
+  return apiFetch(`/api/scrims/${id}/live${suffix}`).then(handleResponse);
 };
 
-export const fetchMatches = () => fetch("/api/matches").then(handleResponse);
+export const fetchMatches = () => apiFetch("/api/matches").then(handleResponse);
 
-export const fetchTeamStats = () => fetch("/api/team-stats").then(handleResponse);
+export const fetchTeamStats = () => apiFetch("/api/team-stats").then(handleResponse);
 
 export const fetchPlayerStats = () =>
-  fetch("/api/player-stats").then(handleResponse);
+  apiFetch("/api/player-stats").then(handleResponse);
 
-export const fetchWinners = () => fetch("/api/winners").then(handleResponse);
+export const fetchWinners = () => apiFetch("/api/winners").then(handleResponse);
 
 export const fetchAnnouncements = () =>
-  fetch("/api/announcements").then(handleResponse);
+  apiFetch("/api/announcements").then(handleResponse);
 
 export const fetchUpcomingMatches = () =>
-  fetch("/api/upcoming-matches").then(handleResponse);
+  apiFetch("/api/upcoming-matches").then(handleResponse);
 
-export const fetchPlayers = () => fetch("/api/players").then(handleResponse);
+export const fetchPlayers = () => apiFetch("/api/players").then(handleResponse);
 
-export const fetchTeams = () => fetch("/api/teams").then(handleResponse);
+export const fetchTeams = () => apiFetch("/api/teams").then(handleResponse);
 
 const withAuth = (token) => ({
   Authorization: `Bearer ${token}`,
@@ -61,146 +65,146 @@ const withAuth = (token) => ({
 });
 
 export const adminLogin = (payload) =>
-  fetch("/api/admin/login", {
+  apiFetch("/api/admin/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminFetchTournaments = (token) =>
-  fetch("/api/admin/tournaments", { headers: withAuth(token) }).then(handleResponse);
+  apiFetch("/api/admin/tournaments", { headers: withAuth(token) }).then(handleResponse);
 
 export const adminCreateTournament = (token, payload) =>
-  fetch("/api/admin/tournaments", {
+  apiFetch("/api/admin/tournaments", {
     method: "POST",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminUpdateTournament = (token, id, payload) =>
-  fetch(`/api/admin/tournaments/${id}`, {
+  apiFetch(`/api/admin/tournaments/${id}`, {
     method: "PUT",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminDeleteTournament = (token, id) =>
-  fetch(`/api/admin/tournaments/${id}`, {
+  apiFetch(`/api/admin/tournaments/${id}`, {
     method: "DELETE",
     headers: withAuth(token)
   });
 
 export const adminFetchScrims = (token) =>
-  fetch("/api/admin/scrims", { headers: withAuth(token) }).then(handleResponse);
+  apiFetch("/api/admin/scrims", { headers: withAuth(token) }).then(handleResponse);
 
 export const adminCreateScrim = (token, payload) =>
-  fetch("/api/admin/scrims", {
+  apiFetch("/api/admin/scrims", {
     method: "POST",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminUpdateScrim = (token, id, payload) =>
-  fetch(`/api/admin/scrims/${id}`, {
+  apiFetch(`/api/admin/scrims/${id}`, {
     method: "PUT",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminDeleteScrim = (token, id) =>
-  fetch(`/api/admin/scrims/${id}`, {
+  apiFetch(`/api/admin/scrims/${id}`, {
     method: "DELETE",
     headers: withAuth(token)
   });
 
 export const adminFetchPlayers = (token) =>
-  fetch("/api/admin/players", { headers: withAuth(token) }).then(handleResponse);
+  apiFetch("/api/admin/players", { headers: withAuth(token) }).then(handleResponse);
 
 export const adminCreatePlayer = (token, payload) =>
-  fetch("/api/admin/players", {
+  apiFetch("/api/admin/players", {
     method: "POST",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminUpdatePlayer = (token, id, payload) =>
-  fetch(`/api/admin/players/${id}`, {
+  apiFetch(`/api/admin/players/${id}`, {
     method: "PUT",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminDeletePlayer = (token, id) =>
-  fetch(`/api/admin/players/${id}`, {
+  apiFetch(`/api/admin/players/${id}`, {
     method: "DELETE",
     headers: withAuth(token)
   });
 
 export const adminFetchTeams = (token) =>
-  fetch("/api/admin/teams", { headers: withAuth(token) }).then(handleResponse);
+  apiFetch("/api/admin/teams", { headers: withAuth(token) }).then(handleResponse);
 
 export const adminCreateTeam = (token, payload) =>
-  fetch("/api/admin/teams", {
+  apiFetch("/api/admin/teams", {
     method: "POST",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminUpdateTeam = (token, id, payload) =>
-  fetch(`/api/admin/teams/${id}`, {
+  apiFetch(`/api/admin/teams/${id}`, {
     method: "PUT",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminDeleteTeam = (token, id) =>
-  fetch(`/api/admin/teams/${id}`, {
+  apiFetch(`/api/admin/teams/${id}`, {
     method: "DELETE",
     headers: withAuth(token)
   });
 
 export const adminFetchParticipants = (token) =>
-  fetch("/api/admin/participants", { headers: withAuth(token) }).then(handleResponse);
+  apiFetch("/api/admin/participants", { headers: withAuth(token) }).then(handleResponse);
 
 export const adminCreateParticipant = (token, payload) =>
-  fetch("/api/admin/participants", {
+  apiFetch("/api/admin/participants", {
     method: "POST",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminUpdateParticipant = (token, id, payload) =>
-  fetch(`/api/admin/participants/${id}`, {
+  apiFetch(`/api/admin/participants/${id}`, {
     method: "PUT",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminDeleteParticipant = (token, id) =>
-  fetch(`/api/admin/participants/${id}`, {
+  apiFetch(`/api/admin/participants/${id}`, {
     method: "DELETE",
     headers: withAuth(token)
   });
 
 export const adminFetchAnnouncements = (token) =>
-  fetch("/api/admin/announcements", { headers: withAuth(token) }).then(handleResponse);
+  apiFetch("/api/admin/announcements", { headers: withAuth(token) }).then(handleResponse);
 
 export const adminCreateAnnouncement = (token, payload) =>
-  fetch("/api/admin/announcements", {
+  apiFetch("/api/admin/announcements", {
     method: "POST",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminUpdateAnnouncement = (token, id, payload) =>
-  fetch(`/api/admin/announcements/${id}`, {
+  apiFetch(`/api/admin/announcements/${id}`, {
     method: "PUT",
     headers: withAuth(token),
     body: JSON.stringify(payload)
   }).then(handleResponse);
 
 export const adminDeleteAnnouncement = (token, id) =>
-  fetch(`/api/admin/announcements/${id}`, {
+  apiFetch(`/api/admin/announcements/${id}`, {
     method: "DELETE",
     headers: withAuth(token)
   });

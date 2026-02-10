@@ -270,6 +270,7 @@ app.get("/api/tournaments", async (req, res) => {
     });
     res.json(tournaments.map(sanitizeTournament));
   } catch (error) {
+    console.error("Failed to load tournaments:", error);
     res.status(500).json({ error: "Failed to load tournaments" });
   }
 });
@@ -530,6 +531,7 @@ app.get("/api/announcements", async (req, res) => {
     const announcements = await listAnnouncements();
     res.json(announcements);
   } catch (error) {
+    console.error("Failed to load announcements:", error);
     res.status(500).json({ error: "Failed to load announcements" });
   }
 });
