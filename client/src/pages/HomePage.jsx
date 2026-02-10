@@ -23,6 +23,10 @@ const HomePage = () => {
   }, []);
 
   useEffect(() => {
+    document.title = "PUBG | ApexGrid";
+  }, []);
+
+  useEffect(() => {
     const loadTournaments = async () => {
       try {
         const data = await fetchTournaments();
