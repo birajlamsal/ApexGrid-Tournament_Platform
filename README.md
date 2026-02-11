@@ -83,3 +83,8 @@ Releases
 
 License
 MIT — see `LICENSE`.
+
+
+For database -Supabase 
+For fronted - vercel
+For backend server - Render 
